@@ -24,5 +24,3 @@ ollama:
 logging:
     file:
         name: ./data/wheresmymoney.log
-    pattern:
-        console: ""

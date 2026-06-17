@@ -39,6 +39,13 @@ dependencies {
     implementation("com.googlecode.lanterna:lanterna:3.1.5")
 }
 
+val jvmNativeArgs = listOf("--enable-native-access=ALL-UNNAMED")
+
 tasks.withType<Test> {
     useJUnitPlatform()
+    jvmArgs(jvmNativeArgs)
+}
+
+tasks.named<org.springframework.boot.gradle.tasks.run.BootRun>("bootRun") {
+    jvmArgs(jvmNativeArgs)
 }
