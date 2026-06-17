@@ -27,6 +27,8 @@ public interface TransactionRepository extends JpaRepository<Transaction, Long> 
 
     List<Transaction> findByEmbeddingIsNotNull();
 
+    boolean existsBySubcategoryId(Long subcategoryId);
+
     /**
      * Total por categoria num período. Sem funções de data no SELECT (só no WHERE)
      * para evitar atrito com o dialeto community do SQLite.

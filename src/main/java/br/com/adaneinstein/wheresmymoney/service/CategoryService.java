@@ -5,6 +5,7 @@ import br.com.adaneinstein.wheresmymoney.domain.model.Subcategory;
 import br.com.adaneinstein.wheresmymoney.domain.model.TransactionType;
 import br.com.adaneinstein.wheresmymoney.domain.repository.CategoryRepository;
 import br.com.adaneinstein.wheresmymoney.domain.repository.SubcategoryRepository;
+import br.com.adaneinstein.wheresmymoney.domain.repository.TransactionRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -17,6 +18,7 @@ public class CategoryService {
 
     private final CategoryRepository categoryRepository;
     private final SubcategoryRepository subcategoryRepository;
+    private final TransactionRepository transactionRepository;
 
     @Transactional(readOnly = true)
     public List<Category> findAll() {
@@ -51,6 +53,22 @@ public class CategoryService {
         category.addSubcategory(sub);
         categoryRepository.save(category);
         return sub;
+    }
+
+    @Transactional
+    public Subcategory renameSubcategory(Long subcategoryId, String newName) {
+        Subcategory sub = subcategoryRepository.findById(subcategoryId)
+                .orElseThrow(() -> new IllegalArgumentException("Subcategoria inexistente: " + subcategoryId));
+        sub.setName(newName);
+        return subcategoryRepository.save(sub);
+    }
+
+    @Transactional
+    public void deleteSubcategory(Long subcategoryId) {
+        if (transactionRepository.existsBySubcategoryId(subcategoryId)) {
+            throw new IllegalStateException("Subcategoria em uso por transações");
+        }
+        subcategoryRepository.deleteById(subcategoryId);
     }
 
     @Transactional
