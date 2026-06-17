@@ -6,6 +6,7 @@ import br.com.adaneinstein.wheresmymoney.domain.model.Transaction;
 import br.com.adaneinstein.wheresmymoney.domain.model.TransactionType;
 import br.com.adaneinstein.wheresmymoney.service.CategoryService;
 import br.com.adaneinstein.wheresmymoney.service.TransactionService;
+import br.com.adaneinstein.wheresmymoney.tui.component.DatePickerDialog;
 import br.com.adaneinstein.wheresmymoney.tui.component.EscClose;
 import br.com.adaneinstein.wheresmymoney.tui.component.Layouts;
 import br.com.adaneinstein.wheresmymoney.util.CurrencyUtil;
@@ -37,7 +38,6 @@ import java.util.Set;
 @RequiredArgsConstructor
 public class TransactionScreen {
 
-    private static final DateTimeFormatter ISO = DateTimeFormatter.ISO_LOCAL_DATE;
     private static final DateTimeFormatter BR = DateTimeFormatter.ofPattern("dd/MM/yyyy");
 
     private static final Subcategory NONE = noneSentinel();
@@ -138,7 +138,20 @@ public class TransactionScreen {
         TextBox descBox = new TextBox(new com.googlecode.lanterna.TerminalSize(30, 1));
         TextBox amountBox = new TextBox(new com.googlecode.lanterna.TerminalSize(30, 1));
         TextBox dateBox = new TextBox(new com.googlecode.lanterna.TerminalSize(30, 1));
+        dateBox.setReadOnly(true);
         TextBox notesBox = new TextBox(new com.googlecode.lanterna.TerminalSize(30, 3));
+
+        final LocalDate[] selectedDate = {existing != null && existing.getDate() != null ? existing.getDate() : LocalDate.now()};
+        Runnable refreshDateText = () -> dateBox.setText(selectedDate[0].format(BR));
+        refreshDateText.run();
+
+        Button selectDateButton = new Button("Selecionar data", () -> {
+            LocalDate picked = DatePickerDialog.show(gui, "Selecionar data", selectedDate[0]);
+            if (picked != null) {
+                selectedDate[0] = picked;
+                refreshDateText.run();
+            }
+        });
 
         ComboBox<Category> categoryCombo = new ComboBox<>();
         categories.forEach(categoryCombo::addItem);
@@ -158,7 +171,6 @@ public class TransactionScreen {
         if (existing != null) {
             descBox.setText(nz(existing.getDescription()));
             amountBox.setText(existing.getAmount() != null ? existing.getAmount().toPlainString() : "");
-            dateBox.setText(existing.getDate() != null ? existing.getDate().format(ISO) : LocalDate.now().format(ISO));
             notesBox.setText(nz(existing.getNotes()));
             if (existing.getCategory() != null) {
                 selectCategory(categoryCombo, existing.getCategory().getId());
@@ -168,7 +180,6 @@ public class TransactionScreen {
                 selectSubcategory(subCombo, existing.getSubcategory().getId());
             }
         } else {
-            dateBox.setText(LocalDate.now().format(ISO));
             refreshSubs.run();
         }
 
@@ -176,8 +187,11 @@ public class TransactionScreen {
         grid.addComponent(descBox);
         grid.addComponent(new Label("Valor (R$)"));
         grid.addComponent(amountBox);
-        grid.addComponent(new Label("Data (aaaa-mm-dd)"));
-        grid.addComponent(dateBox);
+        grid.addComponent(new Label("Data"));
+        Panel dateField = new Panel(new LinearLayout(Direction.HORIZONTAL));
+        dateField.addComponent(dateBox, Layouts.GROW);
+        dateField.addComponent(selectDateButton);
+        grid.addComponent(dateField);
         grid.addComponent(new Label("Categoria"));
         grid.addComponent(categoryCombo);
         grid.addComponent(new Label("Subcategoria"));
@@ -188,7 +202,7 @@ public class TransactionScreen {
         final boolean[] saved = {false};
         Panel actions = new Panel(new LinearLayout(Direction.HORIZONTAL));
         actions.addComponent(new Button("Salvar", () -> {
-            if (save(gui, existing, descBox, amountBox, dateBox, notesBox, categoryCombo, subCombo)) {
+            if (save(gui, existing, descBox, amountBox, selectedDate[0], notesBox, categoryCombo, subCombo)) {
                 saved[0] = true;
                 form.close();
             }
@@ -206,7 +220,7 @@ public class TransactionScreen {
     }
 
     private boolean save(WindowBasedTextGUI gui, Transaction existing,
-                         TextBox descBox, TextBox amountBox, TextBox dateBox, TextBox notesBox,
+                         TextBox descBox, TextBox amountBox, LocalDate selectedDate, TextBox notesBox,
                          ComboBox<Category> categoryCombo, ComboBox<Subcategory> subCombo) {
         try {
             String desc = descBox.getText().trim();
@@ -214,7 +228,7 @@ public class TransactionScreen {
                 throw new IllegalArgumentException("Descrição obrigatória");
             }
             var amount = CurrencyUtil.parse(amountBox.getText());
-            LocalDate date = parseDate(dateBox.getText());
+            LocalDate date = selectedDate;
             Category category = categoryCombo.getSelectedItem();
             if (category == null) {
                 throw new IllegalArgumentException("Selecione uma categoria");
@@ -241,19 +255,6 @@ public class TransactionScreen {
         } catch (RuntimeException e) {
             MessageDialog.showMessageDialog(gui, "Erro", e.getMessage(), MessageDialogButton.OK);
             return false;
-        }
-    }
-
-    private static LocalDate parseDate(String raw) {
-        String s = raw == null ? "" : raw.trim();
-        try {
-            return LocalDate.parse(s, ISO);
-        } catch (RuntimeException ignored) {
-            try {
-                return LocalDate.parse(s, BR);
-            } catch (RuntimeException e) {
-                throw new IllegalArgumentException("Data inválida: " + raw);
-            }
         }
     }
 
