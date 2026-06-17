@@ -3,3 +3,26 @@ spring:
         name: WheresMyMoney
     main:
         web-application-type: none
+        banner-mode: off
+    datasource:
+        url: jdbc:sqlite:./data/wheresmymoney.db
+        driver-class-name: org.sqlite.JDBC
+    jpa:
+        hibernate:
+            ddl-auto: update
+        properties:
+            hibernate.dialect: org.hibernate.community.dialect.SQLiteDialect
+        open-in-view: false
+
+ollama:
+    base-url: http://localhost:11434
+    model: nomic-embed-text
+    enabled: true
+    timeout-ms: 5000
+
+# Lanterna assume o terminal: nada de log no console, tudo em arquivo.
+logging:
+    file:
+        name: ./data/wheresmymoney.log
+    pattern:
+        console: ""
