@@ -5,16 +5,17 @@ import br.com.adaneinstein.wheresmymoney.service.ReportService;
 import br.com.adaneinstein.wheresmymoney.service.report.FinancialSummary;
 import br.com.adaneinstein.wheresmymoney.tui.component.Bars;
 import br.com.adaneinstein.wheresmymoney.tui.component.EscClose;
+import br.com.adaneinstein.wheresmymoney.tui.component.Layouts;
 import br.com.adaneinstein.wheresmymoney.util.CurrencyUtil;
 import com.googlecode.lanterna.TextColor;
 import com.googlecode.lanterna.gui2.BasicWindow;
 import com.googlecode.lanterna.gui2.Borders;
 import com.googlecode.lanterna.gui2.Button;
+import com.googlecode.lanterna.gui2.Direction;
 import com.googlecode.lanterna.gui2.EmptySpace;
 import com.googlecode.lanterna.gui2.Label;
 import com.googlecode.lanterna.gui2.LinearLayout;
 import com.googlecode.lanterna.gui2.Panel;
-import com.googlecode.lanterna.gui2.Window;
 import com.googlecode.lanterna.gui2.WindowBasedTextGUI;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
@@ -25,7 +26,6 @@ import java.time.YearMonth;
 import java.time.format.TextStyle;
 import java.util.List;
 import java.util.Locale;
-import java.util.Set;
 
 @Component
 @RequiredArgsConstructor
@@ -43,37 +43,42 @@ public class DashboardScreen {
         FinancialSummary summary = reportService.summary(start, end);
         List<CategoryTotal> spending = reportService.spendingByCategory(start, end);
 
-        Panel root = new Panel();
-        root.setLayoutManager(new LinearLayout(com.googlecode.lanterna.gui2.Direction.VERTICAL));
+        BasicWindow window = Layouts.fullScreen("Dashboard");
+
+        Panel root = new Panel(new LinearLayout(Direction.VERTICAL));
 
         String monthName = now.getMonth().getDisplayName(TextStyle.FULL, PT_BR);
         root.addComponent(new Label("Resumo de " + capitalize(monthName) + "/" + now.getYear()));
         root.addComponent(new EmptySpace());
 
-        root.addComponent(colored("Receitas:  " + CurrencyUtil.format(summary.income()), TextColor.ANSI.GREEN_BRIGHT));
-        root.addComponent(colored("Despesas:  " + CurrencyUtil.format(summary.expense()), TextColor.ANSI.RED_BRIGHT));
+        // Coluna esquerda: totais do mês.
+        Panel totals = new Panel(new LinearLayout(Direction.VERTICAL));
+        totals.addComponent(colored("Receitas:  " + CurrencyUtil.format(summary.income()), TextColor.ANSI.GREEN_BRIGHT));
+        totals.addComponent(colored("Despesas:  " + CurrencyUtil.format(summary.expense()), TextColor.ANSI.RED_BRIGHT));
         TextColor balanceColor = summary.balance().signum() >= 0 ? TextColor.ANSI.GREEN_BRIGHT : TextColor.ANSI.RED_BRIGHT;
-        root.addComponent(colored("Saldo:     " + CurrencyUtil.format(summary.balance()), balanceColor));
+        totals.addComponent(colored("Saldo:     " + CurrencyUtil.format(summary.balance()), balanceColor));
 
-        Panel top = new Panel();
-        top.setLayoutManager(new LinearLayout(com.googlecode.lanterna.gui2.Direction.VERTICAL));
+        // Coluna direita: maiores gastos, ocupando a largura restante.
+        int barWidth = Math.max(10, Layouts.cols(gui) / 3);
+        int maxRows = Math.max(5, Layouts.rows(gui) - 8);
+        Panel top = new Panel(new LinearLayout(Direction.VERTICAL));
         if (spending.isEmpty()) {
             top.addComponent(new Label("Sem despesas neste mês."));
         } else {
             BigDecimal max = spending.get(0).total();
-            spending.stream().limit(5).forEach(ct ->
+            spending.stream().limit(maxRows).forEach(ct ->
                     top.addComponent(new Label(String.format("%-16s %18s  %s",
                             truncate(ct.categoryName()),
                             CurrencyUtil.format(ct.total()),
-                            Bars.bar(ct.total(), max, 20)))));
+                            Bars.bar(ct.total(), max, barWidth)))));
         }
 
-        root.addComponent(new EmptySpace());
-        root.addComponent(top.withBorder(Borders.singleLine("Maiores gastos do mês")));
+        Panel body = new Panel(new LinearLayout(Direction.HORIZONTAL));
+        body.addComponent(totals.withBorder(Borders.singleLine("Totais")));
+        body.addComponent(top.withBorder(Borders.singleLine("Maiores gastos do mês")), Layouts.GROW);
+        root.addComponent(body, Layouts.GROW);
         root.addComponent(new EmptySpace());
 
-        BasicWindow window = new BasicWindow("Dashboard");
-        window.setHints(Set.of(Window.Hint.CENTERED));
         Button close = new Button("Fechar (Esc)", window::close);
         root.addComponent(close);
         window.setComponent(root);

@@ -4,6 +4,7 @@ import br.com.adaneinstein.wheresmymoney.domain.model.Category;
 import br.com.adaneinstein.wheresmymoney.domain.model.TransactionType;
 import br.com.adaneinstein.wheresmymoney.service.CategoryService;
 import br.com.adaneinstein.wheresmymoney.tui.component.EscClose;
+import br.com.adaneinstein.wheresmymoney.tui.component.Layouts;
 import com.googlecode.lanterna.gui2.BasicWindow;
 import com.googlecode.lanterna.gui2.Button;
 import com.googlecode.lanterna.gui2.ComboBox;
@@ -35,11 +36,10 @@ public class CategoryScreen {
     private final List<Category> rows = new ArrayList<>();
 
     public void open(WindowBasedTextGUI gui) {
-        BasicWindow window = new BasicWindow("Categorias");
-        window.setHints(Set.of(Window.Hint.CENTERED));
+        BasicWindow window = Layouts.fullScreen("Categorias");
 
         Table<String> table = new Table<>("Categoria", "Tipo", "Subcategorias");
-        table.setVisibleRows(12);
+        table.setVisibleRows(Layouts.visibleRows(gui, 5));
         reload(table);
 
         Panel buttons = new Panel(new LinearLayout(Direction.HORIZONTAL));
@@ -58,7 +58,7 @@ public class CategoryScreen {
         buttons.addComponent(new Button("Fechar (Esc)", window::close));
 
         Panel root = new Panel(new LinearLayout(Direction.VERTICAL));
-        root.addComponent(table);
+        root.addComponent(table, Layouts.GROW);
         root.addComponent(new EmptySpace());
         root.addComponent(buttons);
         window.setComponent(root);

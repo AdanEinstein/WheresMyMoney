@@ -7,6 +7,7 @@ import br.com.adaneinstein.wheresmymoney.domain.model.TransactionType;
 import br.com.adaneinstein.wheresmymoney.service.CategoryService;
 import br.com.adaneinstein.wheresmymoney.service.TransactionService;
 import br.com.adaneinstein.wheresmymoney.tui.component.EscClose;
+import br.com.adaneinstein.wheresmymoney.tui.component.Layouts;
 import br.com.adaneinstein.wheresmymoney.util.CurrencyUtil;
 import com.googlecode.lanterna.gui2.BasicWindow;
 import com.googlecode.lanterna.gui2.Button;
@@ -53,11 +54,10 @@ public class TransactionScreen {
     }
 
     public void open(WindowBasedTextGUI gui) {
-        BasicWindow window = new BasicWindow("Transações");
-        window.setHints(Set.of(Window.Hint.CENTERED));
+        BasicWindow window = Layouts.fullScreen("Transações");
 
         Table<String> table = new Table<>("Data", "Tipo", "Categoria", "Descrição", "Valor");
-        table.setVisibleRows(12);
+        table.setVisibleRows(Layouts.visibleRows(gui, 8));
         reload(table);
 
         table.setSelectAction(() -> {
@@ -83,7 +83,7 @@ public class TransactionScreen {
         Panel root = new Panel(new LinearLayout(Direction.VERTICAL));
         root.addComponent(new Label("Enter edita • N adiciona • D exclui • Esc fecha"));
         root.addComponent(new EmptySpace());
-        root.addComponent(table);
+        root.addComponent(table, Layouts.GROW);
         root.addComponent(new EmptySpace());
         root.addComponent(buttons);
 

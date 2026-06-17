@@ -6,6 +6,7 @@ import br.com.adaneinstein.wheresmymoney.service.report.FinancialSummary;
 import br.com.adaneinstein.wheresmymoney.service.report.MonthlyPoint;
 import br.com.adaneinstein.wheresmymoney.tui.component.Bars;
 import br.com.adaneinstein.wheresmymoney.tui.component.EscClose;
+import br.com.adaneinstein.wheresmymoney.tui.component.Layouts;
 import br.com.adaneinstein.wheresmymoney.util.CurrencyUtil;
 import com.googlecode.lanterna.TextColor;
 import com.googlecode.lanterna.gui2.BasicWindow;
@@ -17,7 +18,6 @@ import com.googlecode.lanterna.gui2.EmptySpace;
 import com.googlecode.lanterna.gui2.Label;
 import com.googlecode.lanterna.gui2.LinearLayout;
 import com.googlecode.lanterna.gui2.Panel;
-import com.googlecode.lanterna.gui2.Window;
 import com.googlecode.lanterna.gui2.WindowBasedTextGUI;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
@@ -26,7 +26,6 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.YearMonth;
 import java.util.List;
-import java.util.Set;
 
 @Component
 @RequiredArgsConstructor
@@ -35,13 +34,12 @@ public class ReportScreen {
     private final ReportService reportService;
 
     public void open(WindowBasedTextGUI gui) {
-        BasicWindow window = new BasicWindow("Relatórios");
-        window.setHints(Set.of(Window.Hint.CENTERED));
+        BasicWindow window = Layouts.fullScreen("Relatórios");
 
         ComboBox<String> periodCombo = new ComboBox<>("Mês atual", "Mês anterior", "Ano atual");
 
         Panel content = new Panel(new LinearLayout(Direction.VERTICAL));
-        Runnable refresh = () -> renderContent(content, periodCombo.getSelectedItem());
+        Runnable refresh = () -> renderContent(gui, content, periodCombo.getSelectedItem());
 
         Panel header = new Panel(new LinearLayout(Direction.HORIZONTAL));
         header.addComponent(new Label("Período:"));
@@ -52,18 +50,18 @@ public class ReportScreen {
         Panel root = new Panel(new LinearLayout(Direction.VERTICAL));
         root.addComponent(header);
         root.addComponent(new EmptySpace());
-        root.addComponent(content);
+        root.addComponent(content, Layouts.GROW);
         root.addComponent(new EmptySpace());
         root.addComponent(new Button("Fechar (Esc)", window::close));
 
-        renderContent(content, periodCombo.getSelectedItem());
+        renderContent(gui, content, periodCombo.getSelectedItem());
 
         window.setComponent(root);
         window.addWindowListener(EscClose.of(window));
         gui.addWindowAndWait(window);
     }
 
-    private void renderContent(Panel content, String period) {
+    private void renderContent(WindowBasedTextGUI gui, Panel content, String period) {
         content.removeAllComponents();
         YearMonth ref = YearMonth.now();
         LocalDate start;
@@ -90,6 +88,7 @@ public class ReportScreen {
         content.addComponent(colored("Saldo:    " + CurrencyUtil.format(summary.balance()),
                 summary.balance().signum() >= 0 ? TextColor.ANSI.GREEN_BRIGHT : TextColor.ANSI.RED_BRIGHT));
 
+        int barWidth = Math.max(10, Layouts.cols(gui) / 4);
         Panel byCat = new Panel(new LinearLayout(Direction.VERTICAL));
         List<CategoryTotal> spending = reportService.spendingByCategory(start, end);
         if (spending.isEmpty()) {
@@ -98,11 +97,9 @@ public class ReportScreen {
             BigDecimal max = spending.get(0).total();
             for (CategoryTotal ct : spending) {
                 byCat.addComponent(new Label(String.format("%-16s %18s  %s",
-                        truncate(ct.categoryName()), CurrencyUtil.format(ct.total()), Bars.bar(ct.total(), max, 20))));
+                        truncate(ct.categoryName()), CurrencyUtil.format(ct.total()), Bars.bar(ct.total(), max, barWidth))));
             }
         }
-        content.addComponent(new EmptySpace());
-        content.addComponent(byCat.withBorder(Borders.singleLine("Gastos por categoria")));
 
         Panel history = new Panel(new LinearLayout(Direction.VERTICAL));
         for (MonthlyPoint p : reportService.monthlyHistory(YearMonth.now(), 6)) {
@@ -110,8 +107,13 @@ public class ReportScreen {
                     p.month(), CurrencyUtil.format(p.income()),
                     CurrencyUtil.format(p.expense()), CurrencyUtil.format(p.balance()))));
         }
+
+        // Gastos por categoria e histórico lado-a-lado, usando a largura disponível.
+        Panel columns = new Panel(new LinearLayout(Direction.HORIZONTAL));
+        columns.addComponent(byCat.withBorder(Borders.singleLine("Gastos por categoria")), Layouts.GROW);
+        columns.addComponent(history.withBorder(Borders.singleLine("Histórico (6 meses)")), Layouts.GROW);
         content.addComponent(new EmptySpace());
-        content.addComponent(history.withBorder(Borders.singleLine("Histórico (6 meses)")));
+        content.addComponent(columns, Layouts.GROW);
     }
 
     private static Label colored(String text, TextColor color) {

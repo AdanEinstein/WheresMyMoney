@@ -6,6 +6,7 @@ import br.com.adaneinstein.wheresmymoney.service.SearchResult;
 import br.com.adaneinstein.wheresmymoney.service.SemanticSearchService;
 import br.com.adaneinstein.wheresmymoney.service.TransactionService;
 import br.com.adaneinstein.wheresmymoney.tui.component.EscClose;
+import br.com.adaneinstein.wheresmymoney.tui.component.Layouts;
 import br.com.adaneinstein.wheresmymoney.util.CurrencyUtil;
 import com.googlecode.lanterna.TextColor;
 import com.googlecode.lanterna.gui2.BasicWindow;
@@ -17,7 +18,6 @@ import com.googlecode.lanterna.gui2.Label;
 import com.googlecode.lanterna.gui2.LinearLayout;
 import com.googlecode.lanterna.gui2.Panel;
 import com.googlecode.lanterna.gui2.TextBox;
-import com.googlecode.lanterna.gui2.Window;
 import com.googlecode.lanterna.gui2.WindowBasedTextGUI;
 import com.googlecode.lanterna.gui2.dialogs.MessageDialog;
 import com.googlecode.lanterna.gui2.dialogs.MessageDialogButton;
@@ -26,7 +26,6 @@ import org.springframework.stereotype.Component;
 
 import java.time.format.DateTimeFormatter;
 import java.util.List;
-import java.util.Set;
 
 @Component
 @RequiredArgsConstructor
@@ -39,8 +38,7 @@ public class SearchScreen {
     private final TransactionService transactionService;
 
     public void open(WindowBasedTextGUI gui) {
-        BasicWindow window = new BasicWindow("Busca inteligente");
-        window.setHints(Set.of(Window.Hint.CENTERED));
+        BasicWindow window = Layouts.fullScreen("Busca inteligente");
 
         Label status = new Label("");
         updateStatus(status);
@@ -56,7 +54,7 @@ public class SearchScreen {
 
         Panel bar = new Panel(new LinearLayout(Direction.HORIZONTAL));
         bar.addComponent(new Label("Buscar:"));
-        bar.addComponent(queryBox);
+        bar.addComponent(queryBox, Layouts.GROW);
         bar.addComponent(new Button("Buscar", doSearch));
         bar.addComponent(new Button("Reindexar", () -> {
             int n = transactionService.reindexAll(true);
@@ -71,9 +69,9 @@ public class SearchScreen {
         Panel root = new Panel(new LinearLayout(Direction.VERTICAL));
         root.addComponent(status);
         root.addComponent(new EmptySpace());
-        root.addComponent(bar);
+        root.addComponent(bar, Layouts.FILL);
         root.addComponent(new EmptySpace());
-        root.addComponent(results.withBorder(Borders.singleLine("Resultados")));
+        root.addComponent(results.withBorder(Borders.singleLine("Resultados")), Layouts.GROW);
         root.addComponent(new EmptySpace());
         root.addComponent(new Button("Fechar (Esc)", window::close));
 
