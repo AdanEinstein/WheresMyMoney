@@ -4,6 +4,7 @@ import br.com.adaneinstein.wheresmymoney.domain.model.Category;
 import br.com.adaneinstein.wheresmymoney.domain.model.Subcategory;
 import br.com.adaneinstein.wheresmymoney.domain.model.TransactionType;
 import br.com.adaneinstein.wheresmymoney.service.CategoryService;
+import br.com.adaneinstein.wheresmymoney.service.CategoryService.SubTree;
 import br.com.adaneinstein.wheresmymoney.tui.component.EscClose;
 import br.com.adaneinstein.wheresmymoney.tui.component.Layouts;
 import com.googlecode.lanterna.TextColor;
@@ -46,7 +47,9 @@ public class CategoryScreen {
     // Flat ordered snapshot of what the tree is currently showing.
     private final List<TreeNode> treeNodes = new ArrayList<>();
     // IDs of categories whose children are visible.
-    private final Set<Long> expandedIds = new HashSet<>();
+    private final Set<Long> expandedCategoryIds = new HashSet<>();
+    // IDs of subcategories (com filhos) cujos filhos estão visíveis.
+    private final Set<Long> expandedSubIds = new HashSet<>();
 
     // ── Public entry point ──────────────────────────────────────────────────────
 
@@ -54,8 +57,7 @@ public class CategoryScreen {
         BasicWindow window = Layouts.fullScreen("Categorias");
 
         CategoryTreeBox treeBox = new CategoryTreeBox();
-        treeBox.setOnToggle(() -> toggleExpand(treeBox));
-        treeBox.setOnEnterSub(() -> { editFromTree(gui, treeBox); reload(treeBox); });
+        treeBox.setOnActivate(() -> activate(gui, treeBox));
         reload(treeBox);
 
         Panel buttons = new Panel(new LinearLayout(Direction.HORIZONTAL));
@@ -74,7 +76,7 @@ public class CategoryScreen {
         buttons.addComponent(new Button("Fechar (Esc)", window::close));
 
         Label hint = new Label(
-                "Space/Enter: expandir  N: nova cat  S: add sub  E: editar sub  D: excluir  Esc: sair");
+                "Space/Enter: expandir/editar  N: nova cat  S: add sub (aninhada)  E: editar sub  D: excluir  Esc: sair");
 
         Panel root = new Panel(new LinearLayout(Direction.VERTICAL));
         root.addComponent(hint);
@@ -96,13 +98,10 @@ public class CategoryScreen {
 
         treeNodes.clear();
         for (Category c : categoryService.findAll()) {
-            boolean expanded = expandedIds.contains(c.getId());
+            boolean expanded = expandedCategoryIds.contains(c.getId());
             treeNodes.add(new CategoryNode(c, expanded));
             if (expanded) {
-                List<Subcategory> subs = c.getSubcategories();
-                for (int i = 0; i < subs.size(); i++) {
-                    treeNodes.add(new SubcategoryNode(subs.get(i), i == subs.size() - 1));
-                }
+                appendSubtrees(categoryService.subcategoryForest(c.getId()), 1);
             }
         }
 
@@ -115,16 +114,41 @@ public class CategoryScreen {
         }
     }
 
-    void toggleExpand(CategoryTreeBox treeBox) {
+    /** Achata recursivamente a floresta de subcategorias em {@link SubcategoryNode}s indentados. */
+    private void appendSubtrees(List<SubTree> trees, int depth) {
+        for (int i = 0; i < trees.size(); i++) {
+            SubTree t = trees.get(i);
+            boolean last = i == trees.size() - 1;
+            boolean hasChildren = !t.children().isEmpty();
+            boolean expanded = expandedSubIds.contains(t.sub().getId());
+            treeNodes.add(new SubcategoryNode(t.sub(), depth, last, hasChildren, expanded));
+            if (hasChildren && expanded) {
+                appendSubtrees(t.children(), depth + 1);
+            }
+        }
+    }
+
+    /** Space/Enter: categoria → expandir; sub com filhos → expandir; sub folha → editar. */
+    void activate(WindowBasedTextGUI gui, CategoryTreeBox treeBox) {
         int idx = treeBox.getSelectedIndex();
         if (idx < 0 || idx >= treeNodes.size()) return;
-        if (!(treeNodes.get(idx) instanceof CategoryNode cn)) return;
+        TreeNode node = treeNodes.get(idx);
+        if (node instanceof CategoryNode cn) {
+            toggle(expandedCategoryIds, cn.category().getId());
+            reload(treeBox);
+        } else if (node instanceof SubcategoryNode sn) {
+            if (sn.hasChildren()) {
+                toggle(expandedSubIds, sn.sub().getId());
+                reload(treeBox);
+            } else {
+                editFromTree(gui, treeBox);
+                reload(treeBox);
+            }
+        }
+    }
 
-        Long id = cn.category().getId();
-        if (expandedIds.contains(id)) expandedIds.remove(id);
-        else expandedIds.add(id);
-
-        reload(treeBox);
+    private static void toggle(Set<Long> set, Long id) {
+        if (!set.remove(id)) set.add(id);
     }
 
     // ── CRUD actions ────────────────────────────────────────────────────────────
@@ -173,21 +197,21 @@ public class CategoryScreen {
         if (idx < 0 || idx >= treeNodes.size()) return;
 
         TreeNode node = treeNodes.get(idx);
-        Category category;
         if (node instanceof CategoryNode cn) {
-            category = cn.category();
+            String name = TextInputDialog.showDialog(gui, "Nova subcategoria",
+                    "Nome para subcategoria de \"" + cn.category().getName() + "\":", "");
+            if (name != null && !name.isBlank()) {
+                categoryService.addSubcategory(cn.category().getId(), name.trim());
+                expandedCategoryIds.add(cn.category().getId()); // auto-expand to reveal new child
+            }
         } else if (node instanceof SubcategoryNode sn) {
-            // If a subcategory is selected, add sibling to the same parent
-            category = sn.sub().getCategory();
-        } else {
-            return;
-        }
-
-        String name = TextInputDialog.showDialog(gui, "Nova subcategoria",
-                "Nome para subcategoria de \"" + category.getName() + "\":", "");
-        if (name != null && !name.isBlank()) {
-            categoryService.addSubcategory(category.getId(), name.trim());
-            expandedIds.add(category.getId()); // auto-expand to reveal new child
+            String name = TextInputDialog.showDialog(gui, "Nova subcategoria aninhada",
+                    "Nome para subcategoria de \"" + sn.sub().getName() + "\":", "");
+            if (name != null && !name.isBlank()) {
+                categoryService.addChildSubcategory(sn.sub().getId(), name.trim());
+                expandedCategoryIds.add(sn.sub().getCategory().getId());
+                expandedSubIds.add(sn.sub().getId()); // auto-expand parent sub
+            }
         }
     }
 
@@ -220,7 +244,7 @@ public class CategoryScreen {
                     MessageDialogButton.Yes, MessageDialogButton.No);
             if (choice != MessageDialogButton.Yes) return;
             try {
-                expandedIds.remove(cn.category().getId());
+                expandedCategoryIds.remove(cn.category().getId());
                 categoryService.delete(cn.category().getId());
                 reload(treeBox);
             } catch (RuntimeException e) {
@@ -231,16 +255,17 @@ public class CategoryScreen {
 
         } else if (node instanceof SubcategoryNode sn) {
             MessageDialogButton choice = MessageDialog.showMessageDialog(gui, "Excluir subcategoria",
-                    "Excluir subcategoria \"" + sn.sub().getName() + "\"?\n"
-                            + "Transações desta subcategoria impedem a exclusão.",
+                    "Excluir subcategoria \"" + sn.sub().getName() + "\" e suas subcategorias aninhadas?\n"
+                            + "Transações vinculadas (a ela ou descendentes) impedem a exclusão.",
                     MessageDialogButton.Yes, MessageDialogButton.No);
             if (choice != MessageDialogButton.Yes) return;
             try {
+                expandedSubIds.remove(sn.sub().getId());
                 categoryService.deleteSubcategory(sn.sub().getId());
                 reload(treeBox);
             } catch (RuntimeException e) {
                 MessageDialog.showMessageDialog(gui, "Erro",
-                        "Não foi possível excluir (há transações vinculadas a esta subcategoria).",
+                        "Não foi possível excluir (há transações vinculadas a esta subcategoria ou descendente).",
                         MessageDialogButton.OK);
             }
         }
@@ -252,17 +277,16 @@ public class CategoryScreen {
 
     record CategoryNode(Category category, boolean expanded) implements TreeNode {}
 
-    record SubcategoryNode(Subcategory sub, boolean lastChild) implements TreeNode {}
+    record SubcategoryNode(Subcategory sub, int depth, boolean lastChild,
+                           boolean hasChildren, boolean expanded) implements TreeNode {}
 
     // ── Custom list box ─────────────────────────────────────────────────────────
 
     static final class CategoryTreeBox extends AbstractListBox<TreeNode, CategoryTreeBox> {
 
-        private Runnable onToggle      = () -> {};
-        private Runnable onEnterSub    = () -> {};
+        private Runnable onActivate = () -> {};
 
-        void setOnToggle(Runnable r)   { this.onToggle   = r; }
-        void setOnEnterSub(Runnable r) { this.onEnterSub = r; }
+        void setOnActivate(Runnable r) { this.onActivate = r; }
 
         @Override
         protected AbstractListBox.ListItemRenderer<TreeNode, CategoryTreeBox> createDefaultListItemRenderer() {
@@ -279,15 +303,15 @@ public class CategoryScreen {
             if (isActivate) {
                 int idx = getSelectedIndex();
                 if (idx >= 0 && idx < getItemCount()) {
-                    TreeNode node = getItemAt(idx);
-                    if (node instanceof CategoryNode) {
-                        onToggle.run();
-                        return Interactable.Result.HANDLED;
-                    } else if (node instanceof SubcategoryNode) {
-                        onEnterSub.run();
-                        return Interactable.Result.HANDLED;
-                    }
+                    onActivate.run();
+                    return Interactable.Result.HANDLED;
                 }
+            }
+            // Não delegar caracteres ao AbstractListBox: seu type-ahead (selectByCharacter)
+            // usa TreeNode.toString() — que começa com "SubcategoryNode"/"CategoryNode" — e
+            // consumiria a tecla 'S', impedindo o atalho de janela de criar sub aninhada.
+            if (keyStroke.getKeyType() == KeyType.Character) {
+                return Interactable.Result.UNHANDLED;
             }
             return super.handleKeyStroke(keyStroke);
         }
@@ -309,8 +333,11 @@ public class CategoryScreen {
                 String type  = " [" + cn.category().getType().getLabel() + "]";
                 return arrow + cn.category().getName() + type;
             } else if (item instanceof SubcategoryNode sn) {
-                String branch = sn.lastChild() ? "  └── " : "  ├── ";
-                return branch + sn.sub().getName();
+                String indent = "  ".repeat(sn.depth());
+                String marker = sn.hasChildren()
+                        ? (sn.expanded() ? "▼ " : "▶ ")
+                        : (sn.lastChild() ? "└── " : "├── ");
+                return indent + marker + sn.sub().getName();
             }
             return item.toString();
         }

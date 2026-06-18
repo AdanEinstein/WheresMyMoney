@@ -1,30 +1,43 @@
 package br.com.adaneinstein.wheresmymoney.tui.component;
 
-import com.googlecode.lanterna.TerminalSize;
+import com.googlecode.lanterna.TextColor;
 import com.googlecode.lanterna.gui2.BasicWindow;
+import com.googlecode.lanterna.gui2.Borders;
 import com.googlecode.lanterna.gui2.Button;
 import com.googlecode.lanterna.gui2.Direction;
 import com.googlecode.lanterna.gui2.EmptySpace;
+import com.googlecode.lanterna.gui2.GridLayout;
 import com.googlecode.lanterna.gui2.Label;
 import com.googlecode.lanterna.gui2.LinearLayout;
 import com.googlecode.lanterna.gui2.Panel;
 import com.googlecode.lanterna.gui2.Window;
-import com.googlecode.lanterna.gui2.WindowListenerAdapter;
 import com.googlecode.lanterna.gui2.WindowBasedTextGUI;
+import com.googlecode.lanterna.gui2.WindowListenerAdapter;
 import com.googlecode.lanterna.input.KeyStroke;
-import com.googlecode.lanterna.input.KeyType;
 
 import java.time.LocalDate;
 import java.time.format.TextStyle;
-import java.util.Arrays;
 import java.util.Locale;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
 
+/**
+ * Diálogo de seleção de data: calendário visual em grade (7 colunas × 6 semanas),
+ * com borda, dia selecionado destacado e navegação por setas. Retorna a data
+ * escolhida ou {@code null} se cancelado.
+ */
 public final class DatePickerDialog {
 
     private static final Locale PT_BR = Locale.forLanguageTag("pt-BR");
-    private static final String[] WEEKDAYS = {"Seg", "Ter", "Qua", "Qui", "Sex", "Sab", "Dom"};
+    private static final String[] WEEKDAYS = {"Seg", "Ter", "Qua", "Qui", "Sex", "Sáb", "Dom"};
+
+    // Paleta de cores das células.
+    private static final TextColor BG = TextColor.ANSI.BLACK;
+    private static final TextColor NORMAL_FG = TextColor.ANSI.WHITE;
+    private static final TextColor OTHER_MONTH_FG = TextColor.ANSI.BLACK_BRIGHT;
+    private static final TextColor TODAY_FG = TextColor.ANSI.CYAN_BRIGHT;
+    private static final TextColor SELECTED_FG = TextColor.ANSI.BLACK;
+    private static final TextColor SELECTED_BG = TextColor.ANSI.WHITE;
 
     private DatePickerDialog() {
     }
@@ -41,46 +54,58 @@ public final class DatePickerDialog {
         final LocalDate[] pickedDate = {null};
 
         Label monthLabel = new Label("");
-        Label helpLabel = new Label("H/J/K/L: mover  PgUp/PgDn: mês  Home/End: início/fim  T: hoje  Enter: confirmar");
-        Label weekHeader = new Label(weekHeaderLine());
-        Panel weeksPanel = new Panel(new LinearLayout(Direction.VERTICAL));
-        Label[] weekLines = new Label[6];
-        for (int i = 0; i < weekLines.length; i++) {
-            weekLines[i] = new Label("");
-            weeksPanel.addComponent(weekLines[i]);
-        }
-        final Runnable[] refresh = new Runnable[1];
+        monthLabel.setForegroundColor(TextColor.ANSI.CYAN_BRIGHT);
 
-        refresh[0] = () -> {
+        // Grade: 7 colunas (cabeçalho dos dias + 6 semanas de células).
+        Panel grid = new Panel(new GridLayout(7));
+        for (String wd : WEEKDAYS) {
+            Label header = new Label(String.format(" %-3s", wd));
+            header.setForegroundColor(TextColor.ANSI.YELLOW);
+            grid.addComponent(header);
+        }
+        Label[] cells = new Label[42];
+        for (int i = 0; i < cells.length; i++) {
+            cells[i] = new Label("    ");
+            grid.addComponent(cells[i]);
+        }
+
+        final Runnable refresh = () -> {
             LocalDate firstOfMonth = monthView[0].withDayOfMonth(1);
             String monthName = firstOfMonth.getMonth().getDisplayName(TextStyle.FULL, PT_BR);
             monthLabel.setText(capitalize(monthName) + " " + firstOfMonth.getYear());
 
-            int shift = firstOfMonth.getDayOfWeek().getValue() - 1;
+            int shift = firstOfMonth.getDayOfWeek().getValue() - 1; // segunda = 0
             LocalDate start = firstOfMonth.minusDays(shift);
-
-            for (int week = 0; week < weekLines.length; week++) {
-                LocalDate weekStart = start.plusDays((long) week * 7);
-                weekLines[week].setText(weekLine(weekStart, selected[0], today, firstOfMonth.getMonthValue()));
+            for (int i = 0; i < cells.length; i++) {
+                LocalDate day = start.plusDays(i);
+                Label cell = cells[i];
+                cell.setText(String.format(" %2d ", day.getDayOfMonth()));
+                if (day.equals(selected[0])) {
+                    cell.setForegroundColor(SELECTED_FG);
+                    cell.setBackgroundColor(SELECTED_BG);
+                } else {
+                    cell.setBackgroundColor(BG);
+                    if (day.equals(today)) {
+                        cell.setForegroundColor(TODAY_FG);
+                    } else if (day.getMonthValue() != firstOfMonth.getMonthValue()) {
+                        cell.setForegroundColor(OTHER_MONTH_FG);
+                    } else {
+                        cell.setForegroundColor(NORMAL_FG);
+                    }
+                }
             }
         };
 
-        Button prevMonth = new Button("< Mês", () -> {
+        Button prevMonth = new Button("◀", () -> {
             selected[0] = selected[0].minusMonths(1);
             monthView[0] = monthView[0].minusMonths(1).withDayOfMonth(1);
-            refresh[0].run();
+            refresh.run();
         });
-        Button nextMonth = new Button("Mês >", () -> {
+        Button nextMonth = new Button("▶", () -> {
             selected[0] = selected[0].plusMonths(1);
             monthView[0] = monthView[0].plusMonths(1).withDayOfMonth(1);
-            refresh[0].run();
+            refresh.run();
         });
-        Button goToday = new Button("Hoje", () -> {
-            selected[0] = today;
-            monthView[0] = today.withDayOfMonth(1);
-            refresh[0].run();
-        });
-
         Button confirm = new Button("Selecionar", () -> {
             pickedDate[0] = selected[0];
             dialog.close();
@@ -89,114 +114,75 @@ public final class DatePickerDialog {
 
         Panel topBar = new Panel(new LinearLayout(Direction.HORIZONTAL));
         topBar.addComponent(prevMonth);
-        topBar.addComponent(new EmptySpace(new TerminalSize(2, 1)));
+        topBar.addComponent(new EmptySpace());
         topBar.addComponent(monthLabel);
-        topBar.addComponent(new EmptySpace(new TerminalSize(2, 1)));
+        topBar.addComponent(new EmptySpace());
         topBar.addComponent(nextMonth);
-        topBar.addComponent(new EmptySpace(new TerminalSize(2, 1)));
-        topBar.addComponent(goToday);
 
         Panel actions = new Panel(new LinearLayout(Direction.HORIZONTAL));
         actions.addComponent(confirm);
         actions.addComponent(cancel);
 
-        Panel calendar = new Panel(new LinearLayout(Direction.VERTICAL));
-        calendar.addComponent(centerHorizontally(topBar));
-        calendar.addComponent(new EmptySpace(new TerminalSize(1, 1)));
-        calendar.addComponent(centerHorizontally(weekHeader));
-        calendar.addComponent(centerHorizontally(weeksPanel));
-        calendar.addComponent(new EmptySpace(new TerminalSize(1, 1)));
-        calendar.addComponent(centerHorizontally(helpLabel));
-        calendar.addComponent(new EmptySpace(new TerminalSize(1, 1)));
-        calendar.addComponent(centerHorizontally(actions));
+        Label help = new Label("Setas: mover · ◀ ▶: mês · T: hoje · Enter: ok · Esc: cancela");
+        help.setForegroundColor(TextColor.ANSI.BLACK_BRIGHT);
 
-        Panel centered = new Panel(new LinearLayout(Direction.HORIZONTAL));
-        centered.addComponent(new EmptySpace(), Layouts.GROW);
-        centered.addComponent(calendar);
-        centered.addComponent(new EmptySpace(), Layouts.GROW);
-
-        Panel root = new Panel(new LinearLayout(Direction.VERTICAL));
-        root.addComponent(centered, Layouts.GROW);
+        Panel content = new Panel(new LinearLayout(Direction.VERTICAL));
+        content.addComponent(center(topBar));
+        content.addComponent(new EmptySpace());
+        content.addComponent(grid.withBorder(Borders.singleLine()));
+        content.addComponent(new EmptySpace());
+        content.addComponent(center(help));
+        content.addComponent(new EmptySpace());
+        content.addComponent(center(actions));
 
         dialog.addWindowListener(new WindowListenerAdapter() {
             @Override
             public void onUnhandledInput(Window basePane, KeyStroke key, AtomicBoolean handled) {
                 LocalDate next = selected[0];
-                if (key.getKeyType() == KeyType.PageUp) {
-                    next = selected[0].minusMonths(1);
-                } else if (key.getKeyType() == KeyType.PageDown) {
-                    next = selected[0].plusMonths(1);
-                } else if (key.getKeyType() == KeyType.Home) {
-                    next = selected[0].withDayOfMonth(1);
-                } else if (key.getKeyType() == KeyType.End) {
-                    next = selected[0].withDayOfMonth(selected[0].lengthOfMonth());
-                } else if (key.getKeyType() == KeyType.Enter) {
-                    handled.set(true);
-                    pickedDate[0] = selected[0];
-                    dialog.close();
-                    return;
-                } else if (key.getKeyType() == KeyType.Character && key.getCharacter() != null
-                        && Character.toLowerCase(key.getCharacter()) == 't') {
-                    next = today;
-                } else if (key.getKeyType() == KeyType.Character && key.getCharacter() != null
-                        && Character.toLowerCase(key.getCharacter()) == 'h') {
-                    next = selected[0].minusDays(1);
-                } else if (key.getKeyType() == KeyType.Character && key.getCharacter() != null
-                        && Character.toLowerCase(key.getCharacter()) == 'l') {
-                    next = selected[0].plusDays(1);
-                } else if (key.getKeyType() == KeyType.Character && key.getCharacter() != null
-                        && Character.toLowerCase(key.getCharacter()) == 'k') {
-                    next = selected[0].minusDays(7);
-                } else if (key.getKeyType() == KeyType.Character && key.getCharacter() != null
-                        && Character.toLowerCase(key.getCharacter()) == 'j') {
-                    next = selected[0].plusDays(7);
-                } else {
-                    return;
+                switch (key.getKeyType()) {
+                    case ArrowLeft -> next = selected[0].minusDays(1);
+                    case ArrowRight -> next = selected[0].plusDays(1);
+                    case ArrowUp -> next = selected[0].minusDays(7);
+                    case ArrowDown -> next = selected[0].plusDays(7);
+                    case PageUp -> next = selected[0].minusMonths(1);
+                    case PageDown -> next = selected[0].plusMonths(1);
+                    case Home -> next = selected[0].withDayOfMonth(1);
+                    case End -> next = selected[0].withDayOfMonth(selected[0].lengthOfMonth());
+                    case Enter -> {
+                        handled.set(true);
+                        pickedDate[0] = selected[0];
+                        dialog.close();
+                        return;
+                    }
+                    case Character -> {
+                        Character ch = key.getCharacter();
+                        if (ch == null) {
+                            return;
+                        }
+                        switch (Character.toLowerCase(ch)) {
+                            case 't' -> next = today;
+                            case 'h' -> next = selected[0].minusDays(1);
+                            case 'l' -> next = selected[0].plusDays(1);
+                            case 'k' -> next = selected[0].minusDays(7);
+                            case 'j' -> next = selected[0].plusDays(7);
+                            default -> { return; }
+                        }
+                    }
+                    default -> { return; }
                 }
 
                 handled.set(true);
                 selected[0] = next;
                 monthView[0] = next.withDayOfMonth(1);
-                refresh[0].run();
+                refresh.run();
             }
         });
 
-        dialog.setComponent(root);
+        dialog.setComponent(content);
         dialog.addWindowListener(EscClose.of(dialog));
-        refresh[0].run();
+        refresh.run();
         gui.addWindowAndWait(dialog);
         return pickedDate[0];
-    }
-
-    private static String weekHeaderLine() {
-        return String.join(" ", Arrays.stream(WEEKDAYS)
-                .map(day -> String.format(" %-3s", day))
-                .toArray(String[]::new));
-    }
-
-    private static String weekLine(LocalDate start, LocalDate selected, LocalDate today, int currentMonth) {
-        StringBuilder sb = new StringBuilder();
-        for (int i = 0; i < 7; i++) {
-            if (i > 0) {
-                sb.append(' ');
-            }
-            sb.append(dayCell(start.plusDays(i), selected, today, currentMonth));
-        }
-        return sb.toString();
-    }
-
-    private static String dayCell(LocalDate date, LocalDate selected, LocalDate today, int currentMonth) {
-        String day = String.format("%2d", date.getDayOfMonth());
-        if (date.equals(selected)) {
-            return "[" + day + "]";
-        }
-        if (date.equals(today)) {
-            return "*" + day + "*";
-        }
-        if (date.getMonthValue() != currentMonth) {
-            return "(" + day + ")";
-        }
-        return " " + day + " ";
     }
 
     private static String capitalize(String text) {
@@ -206,7 +192,7 @@ public final class DatePickerDialog {
         return Character.toUpperCase(text.charAt(0)) + text.substring(1);
     }
 
-    private static Panel centerHorizontally(com.googlecode.lanterna.gui2.Component content) {
+    private static Panel center(com.googlecode.lanterna.gui2.Component content) {
         Panel row = new Panel(new LinearLayout(Direction.HORIZONTAL));
         row.addComponent(new EmptySpace(), Layouts.GROW);
         row.addComponent(content);

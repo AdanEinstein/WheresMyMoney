@@ -7,5 +7,5 @@ import java.util.List;
 
 public interface SubcategoryRepository extends JpaRepository<Subcategory, Long> {
 
-    List<Subcategory> findByCategoryId(Long categoryId);
+    List<Subcategory> findByCategoryIdOrderByNameAsc(Long categoryId);
 }

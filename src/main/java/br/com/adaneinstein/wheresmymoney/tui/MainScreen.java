@@ -2,6 +2,7 @@ package br.com.adaneinstein.wheresmymoney.tui;
 
 import br.com.adaneinstein.wheresmymoney.tui.screen.CategoryScreen;
 import br.com.adaneinstein.wheresmymoney.tui.screen.DashboardScreen;
+import br.com.adaneinstein.wheresmymoney.tui.screen.MonthlyPaymentScreen;
 import br.com.adaneinstein.wheresmymoney.tui.screen.ReportScreen;
 import br.com.adaneinstein.wheresmymoney.tui.screen.SearchScreen;
 import br.com.adaneinstein.wheresmymoney.tui.screen.TransactionScreen;
@@ -36,6 +37,7 @@ public class MainScreen {
     private final DashboardScreen dashboardScreen;
     private final TransactionScreen transactionScreen;
     private final CategoryScreen categoryScreen;
+    private final MonthlyPaymentScreen monthlyPaymentScreen;
     private final ReportScreen reportScreen;
     private final SearchScreen searchScreen;
 
@@ -68,13 +70,14 @@ public class MainScreen {
         menu.addComponent(new Button("[D] Dashboard", () -> dashboardScreen.open(gui)));
         menu.addComponent(new Button("[T] Transações", () -> transactionScreen.open(gui)));
         menu.addComponent(new Button("[C] Categorias", () -> categoryScreen.open(gui)));
+        menu.addComponent(new Button("[P] Pagamentos mensais", () -> monthlyPaymentScreen.open(gui)));
         menu.addComponent(new Button("[R] Relatórios", () -> reportScreen.open(gui)));
         menu.addComponent(new Button("[/] Busca inteligente", () -> searchScreen.open(gui)));
         menu.addComponent(new EmptySpace());
         menu.addComponent(new Button("[Q] Sair", window::close));
         root.addComponent(menu);
         root.addComponent(new EmptySpace());
-        root.addComponent(new Label("Atalhos: D T C R /  •  Q sai"));
+        root.addComponent(new Label("Atalhos: D T C P R /  •  Q sai"));
 
         window.setComponent(root);
         window.addWindowListener(new MenuKeys(gui, window));
@@ -107,6 +110,7 @@ public class MainScreen {
                 case 'd' -> dashboardScreen.open(gui);
                 case 't' -> transactionScreen.open(gui);
                 case 'c' -> categoryScreen.open(gui);
+                case 'p' -> monthlyPaymentScreen.open(gui);
                 case 'r' -> reportScreen.open(gui);
                 case '/' -> searchScreen.open(gui);
                 case 'q' -> window.close();

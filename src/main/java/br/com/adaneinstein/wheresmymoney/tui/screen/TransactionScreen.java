@@ -9,6 +9,7 @@ import br.com.adaneinstein.wheresmymoney.service.TransactionService;
 import br.com.adaneinstein.wheresmymoney.tui.component.DatePickerDialog;
 import br.com.adaneinstein.wheresmymoney.tui.component.EscClose;
 import br.com.adaneinstein.wheresmymoney.tui.component.Layouts;
+import br.com.adaneinstein.wheresmymoney.tui.component.MoneyMask;
 import br.com.adaneinstein.wheresmymoney.util.CurrencyUtil;
 import com.googlecode.lanterna.gui2.BasicWindow;
 import com.googlecode.lanterna.gui2.Button;
@@ -40,17 +41,19 @@ public class TransactionScreen {
 
     private static final DateTimeFormatter BR = DateTimeFormatter.ofPattern("dd/MM/yyyy");
 
-    private static final Subcategory NONE = noneSentinel();
+    private static final SubOption NONE = new SubOption(null, "(nenhuma)");
 
     private final TransactionService transactionService;
     private final CategoryService categoryService;
 
     private final List<Transaction> rows = new ArrayList<>();
 
-    private static Subcategory noneSentinel() {
-        Subcategory s = new Subcategory("(nenhuma)");
-        s.setId(null);
-        return s;
+    /** Item do ComboBox de subcategoria: envolve a entidade e exibe o caminho indentado. */
+    private record SubOption(Subcategory sub, String label) {
+        @Override
+        public String toString() {
+            return label;
+        }
     }
 
     public void open(WindowBasedTextGUI gui) {
@@ -137,6 +140,7 @@ public class TransactionScreen {
 
         TextBox descBox = new TextBox(new com.googlecode.lanterna.TerminalSize(30, 1));
         TextBox amountBox = new TextBox(new com.googlecode.lanterna.TerminalSize(30, 1));
+        MoneyMask.apply(amountBox);
         TextBox dateBox = new TextBox(new com.googlecode.lanterna.TerminalSize(30, 1));
         dateBox.setReadOnly(true);
         TextBox notesBox = new TextBox(new com.googlecode.lanterna.TerminalSize(30, 3));
@@ -155,14 +159,16 @@ public class TransactionScreen {
 
         ComboBox<Category> categoryCombo = new ComboBox<>();
         categories.forEach(categoryCombo::addItem);
-        ComboBox<Subcategory> subCombo = new ComboBox<>();
+        ComboBox<SubOption> subCombo = new ComboBox<>();
 
         Runnable refreshSubs = () -> {
             subCombo.clearItems();
             subCombo.addItem(NONE); // opção "nenhuma"
             Category selected = categoryCombo.getSelectedItem();
             if (selected != null) {
-                categoryService.subcategoriesOf(selected.getId()).forEach(subCombo::addItem);
+                List<SubOption> options = new ArrayList<>();
+                flattenOptions(categoryService.subcategoryForest(selected.getId()), 0, options);
+                options.forEach(subCombo::addItem);
             }
         };
         categoryCombo.addListener((sel, prev, byUser) -> refreshSubs.run());
@@ -170,7 +176,7 @@ public class TransactionScreen {
         // valores iniciais
         if (existing != null) {
             descBox.setText(nz(existing.getDescription()));
-            amountBox.setText(existing.getAmount() != null ? existing.getAmount().toPlainString() : "");
+            amountBox.setText(CurrencyUtil.maskMoney(existing.getAmount()));
             notesBox.setText(nz(existing.getNotes()));
             if (existing.getCategory() != null) {
                 selectCategory(categoryCombo, existing.getCategory().getId());
@@ -221,7 +227,7 @@ public class TransactionScreen {
 
     private boolean save(WindowBasedTextGUI gui, Transaction existing,
                          TextBox descBox, TextBox amountBox, LocalDate selectedDate, TextBox notesBox,
-                         ComboBox<Category> categoryCombo, ComboBox<Subcategory> subCombo) {
+                         ComboBox<Category> categoryCombo, ComboBox<SubOption> subCombo) {
         try {
             String desc = descBox.getText().trim();
             if (desc.isEmpty()) {
@@ -233,10 +239,8 @@ public class TransactionScreen {
             if (category == null) {
                 throw new IllegalArgumentException("Selecione uma categoria");
             }
-            Subcategory sub = subCombo.getSelectedItem();
-            if (sub != null && sub.getId() == null) {
-                sub = null; // sentinela "(nenhuma)"
-            }
+            SubOption opt = subCombo.getSelectedItem();
+            Subcategory sub = opt != null ? opt.sub() : null; // null = "(nenhuma)"
             String notes = notesBox.getText();
 
             if (existing == null) {
@@ -268,13 +272,23 @@ public class TransactionScreen {
         }
     }
 
-    private static void selectSubcategory(ComboBox<Subcategory> combo, Long id) {
+    private static void selectSubcategory(ComboBox<SubOption> combo, Long id) {
         for (int i = 0; i < combo.getItemCount(); i++) {
-            Subcategory s = combo.getItem(i);
-            if (s != null && s.getId() != null && s.getId().equals(id)) {
+            SubOption opt = combo.getItem(i);
+            if (opt != null && opt.sub() != null && opt.sub().getId() != null
+                    && opt.sub().getId().equals(id)) {
                 combo.setSelectedIndex(i);
                 return;
             }
+        }
+    }
+
+    /** Achata a floresta de subcategorias em opções com caminho indentado para o ComboBox. */
+    private static void flattenOptions(List<CategoryService.SubTree> trees, int depth, List<SubOption> acc) {
+        for (CategoryService.SubTree t : trees) {
+            String prefix = depth == 0 ? "" : "  ".repeat(depth) + "↳ ";
+            acc.add(new SubOption(t.sub(), prefix + t.sub().getName()));
+            flattenOptions(t.children(), depth + 1, acc);
         }
     }
 

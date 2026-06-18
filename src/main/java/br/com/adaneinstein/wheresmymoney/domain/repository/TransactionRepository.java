@@ -29,6 +29,8 @@ public interface TransactionRepository extends JpaRepository<Transaction, Long> 
 
     boolean existsBySubcategoryId(Long subcategoryId);
 
+    boolean existsBySubcategoryIdIn(java.util.Collection<Long> subcategoryIds);
+
     /**
      * Total por categoria num período. Sem funções de data no SELECT (só no WHERE)
      * para evitar atrito com o dialeto community do SQLite.
