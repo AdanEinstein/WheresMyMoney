@@ -30,7 +30,7 @@ public class SemanticSearchService {
         }
         float[] queryVector = embeddingService.embed(query);
         if (queryVector != null) {
-            List<SearchResult> semantic = semanticSearch(queryVector, topN);
+            List<SearchResult> semantic = semanticSearch(queryVector, query, topN);
             if (!semantic.isEmpty()) {
                 return semantic;
             }
@@ -38,16 +38,34 @@ public class SemanticSearchService {
         return textualSearch(query, topN);
     }
 
-    private List<SearchResult> semanticSearch(float[] queryVector, int topN) {
+    private List<SearchResult> semanticSearch(float[] queryVector, String query, int topN) {
+        String q = query.toLowerCase();
         return transactionRepository.findByEmbeddingIsNotNull().stream()
-                .map(t -> new SearchResult(
-                        t,
-                        CosineSimilarity.between(queryVector, FloatBytes.toFloats(t.getEmbedding())),
-                        SearchResult.Origin.SEMANTIC))
+                .map(t -> {
+                    double semantic = CosineSimilarity.between(queryVector, FloatBytes.toFloats(t.getEmbedding()));
+                    double hybrid = 0.7 * semantic + 0.3 * lexicalScore(t, q);
+                    return new SearchResult(t, hybrid, SearchResult.Origin.SEMANTIC);
+                })
                 .filter(r -> r.score() > 0.0)
                 .sorted(Comparator.comparingDouble(SearchResult::score).reversed())
                 .limit(topN)
                 .toList();
+    }
+
+    private double lexicalScore(Transaction t, String queryLower) {
+        double desc = fieldLexicalScore(t.getDescription(), queryLower);
+        double notes = fieldLexicalScore(t.getNotes(), queryLower);
+        return Math.max(desc, notes);
+    }
+
+    private double fieldLexicalScore(String field, String queryLower) {
+        if (field == null) return 0.0;
+        String f = field.toLowerCase();
+        if (f.equals(queryLower)) return 1.0;
+        if (f.startsWith(queryLower)) return 0.7;
+        if (f.matches(".*\\b" + java.util.regex.Pattern.quote(queryLower) + "\\b.*")) return 0.5;
+        if (f.contains(queryLower)) return 0.3;
+        return 0.0;
     }
 
     private List<SearchResult> textualSearch(String query, int topN) {
