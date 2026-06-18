@@ -1,4 +1,4 @@
-# WheresMyMoney
+# WheresMyMoney 💸
 
 Controle de finanças pessoais direto no terminal.
 
