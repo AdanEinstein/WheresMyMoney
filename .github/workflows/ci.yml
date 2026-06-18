@@ -55,10 +55,12 @@ jobs:
       - id: ver
         run: echo "VERSION=${GITHUB_REF_NAME#v}" >> $GITHUB_OUTPUT
       - run: ./gradlew nativeCompile -PappVersion=${{ steps.ver.outputs.VERSION }} --no-daemon
+      - run: mv build/native/nativeCompile/wheresmymoney \
+              build/native/nativeCompile/wheresmymoney-${{ steps.ver.outputs.VERSION }}-linux
       - uses: actions/upload-artifact@v4
         with:
           name: native-linux
-          path: build/native/nativeCompile/wheresmymoney
+          path: build/native/nativeCompile/wheresmymoney-${{ steps.ver.outputs.VERSION }}-linux
 
   native-macos:
     name: Native (macOS)
@@ -75,10 +77,12 @@ jobs:
       - id: ver
         run: echo "VERSION=${GITHUB_REF_NAME#v}" >> $GITHUB_OUTPUT
       - run: ./gradlew nativeCompile -PappVersion=${{ steps.ver.outputs.VERSION }} --no-daemon
+      - run: mv build/native/nativeCompile/wheresmymoney \
+                build/native/nativeCompile/wheresmymoney-${{ steps.ver.outputs.VERSION }}-macos
       - uses: actions/upload-artifact@v4
         with:
           name: native-macos
-          path: build/native/nativeCompile/wheresmymoney
+          path: build/native/nativeCompile/wheresmymoney-${{ steps.ver.outputs.VERSION }}-macos
 
   native-windows:
     name: Native (Windows)
@@ -97,11 +101,15 @@ jobs:
         shell: pwsh
       - run: ./gradlew nativeCompile "-PappVersion=${{ steps.ver.outputs.VERSION }}" --no-daemon
         shell: pwsh
+      - run: |
+            Rename-Item `
+              build/native/nativeCompile/wheresmymoney.exe `
+              wheresmymoney-${{ steps.ver.outputs.VERSION }}-windows.exe
+        shell: pwsh
       - uses: actions/upload-artifact@v4
         with:
           name: native-windows
-          path: build/native/nativeCompile/wheresmymoney.exe
-
+          path: build/native/nativeCompile/wheresmymoney-${{ steps.ver.outputs.VERSION }}-windows.exe
   release:
     name: Release
     needs: [build-jar, native-linux, native-macos, native-windows]
@@ -118,6 +126,6 @@ jobs:
           generate_release_notes: true
           files: |
             artifacts/jar/WheresMyMoney-${{ needs.build-jar.outputs.version }}.jar
-            artifacts/native-linux/wheresmymoney
-            artifacts/native-macos/wheresmymoney
-            artifacts/native-windows/wheresmymoney.exe
+            artifacts/native-linux/wheresmymoney-${{ needs.build-jar.outputs.version }}-linux
+            artifacts/native-macos/wheresmymoney-${{ needs.build-jar.outputs.version }}-macos
+            artifacts/native-windows/wheresmymoney-${{ needs.build-jar.outputs.version }}-windows.exe
