@@ -19,6 +19,9 @@ public class WheresMyMoneyApplication {
     private final MainScreen mainScreen;
 
     public static void main(String[] args) {
+        // ponytail: native image não lê versão do logback do manifest → WARN → dump de status no console.
+        // Registrar NOP listener via property antes do logback inicializar suprime o dump.
+        System.setProperty("logback.statusListenerClass", "ch.qos.logback.core.status.NopStatusListener");
         SpringApplication.run(WheresMyMoneyApplication.class, args);
     }
 

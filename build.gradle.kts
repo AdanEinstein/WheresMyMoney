@@ -3,6 +3,9 @@ plugins {
     id("org.springframework.boot") version "4.1.0"
     id("io.spring.dependency-management") version "1.1.7"
     id("org.graalvm.buildtools.native") version "0.10.6"
+    // Bytecode enhancement em build-time: lazy associations sem HibernateProxy
+    // em runtime (compatível com BytecodeProvider=none do native image).
+    id("org.hibernate.orm") version "7.4.1.Final"
 }
 
 group = "br.com.adaneinstein"
@@ -42,7 +45,8 @@ dependencies {
     implementation("com.googlecode.lanterna:lanterna:3.1.5")
 }
 
-val jvmNativeArgs = listOf("--enable-native-access=ALL-UNNAMED")
+val silenceLogbackStatus = "-Dlogback.statusListenerClass=ch.qos.logback.core.status.NopStatusListener"
+val jvmNativeArgs = listOf("--enable-native-access=ALL-UNNAMED", silenceLogbackStatus)
 
 tasks.withType<Test> {
     useJUnitPlatform()
@@ -59,7 +63,8 @@ graalvmNative {
             imageName.set("wheresmymoney")
             buildArgs.addAll(
                 "--enable-native-access=ALL-UNNAMED",
-                "-H:+ReportExceptionStackTraces"
+                "-H:+ReportExceptionStackTraces",
+                silenceLogbackStatus
             )
         }
     }
@@ -69,4 +74,9 @@ tasks.processResources {
     filesMatching("version.properties") {
         expand("appVersion" to project.version)
     }
+}
+
+// Enhancement estático nas entidades (lazy + dirty tracking, defaults true) no compileJava.
+hibernate {
+    enhancement {}
 }

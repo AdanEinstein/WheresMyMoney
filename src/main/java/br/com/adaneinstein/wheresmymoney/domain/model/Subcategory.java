@@ -38,6 +38,9 @@ public class Subcategory {
     private Category category;
 
     /** Subcategoria pai; {@code null} quando é filho direto da categoria raiz. */
+    // LAZY via bytecode enhancement em build-time (plugin org.hibernate.orm):
+    // entidade gerencia o lazy field sem HibernateProxy em runtime, compatível
+    // com BytecodeProvider=none do native image.
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "parent_subcategory_id")
     private Subcategory parentSubcategory;
