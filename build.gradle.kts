@@ -36,6 +36,8 @@ dependencies {
     testImplementation("org.springframework.boot:spring-boot-starter-test")
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
 
+    // Anotações @TargetClass/@Substitute para substitution do native image (só compile)
+    compileOnly("org.graalvm.nativeimage:svm:25.0.2")
     // Source: https://mvnrepository.com/artifact/org.projectlombok/lombok
     compileOnly("org.projectlombok:lombok:1.18.46")
     annotationProcessor("org.projectlombok:lombok:1.18.46")
@@ -45,8 +47,7 @@ dependencies {
     implementation("com.googlecode.lanterna:lanterna:3.1.5")
 }
 
-val silenceLogbackStatus = "-Dlogback.statusListenerClass=ch.qos.logback.core.status.NopStatusListener"
-val jvmNativeArgs = listOf("--enable-native-access=ALL-UNNAMED", silenceLogbackStatus)
+val jvmNativeArgs = listOf("--enable-native-access=ALL-UNNAMED")
 
 tasks.withType<Test> {
     useJUnitPlatform()
@@ -63,8 +64,7 @@ graalvmNative {
             imageName.set("wheresmymoney")
             buildArgs.addAll(
                 "--enable-native-access=ALL-UNNAMED",
-                "-H:+ReportExceptionStackTraces",
-                silenceLogbackStatus
+                "-H:+ReportExceptionStackTraces"
             )
         }
     }
