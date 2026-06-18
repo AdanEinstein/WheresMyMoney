@@ -1,131 +1,127 @@
 name: CI/CD
 
 on:
-  push:
-    tags: ['v*.*.*']
+    push:
+        tags: [ 'v*.*.*' ]
 
 jobs:
-  tests:
-    name: Tests
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-java@v4
-        with:
-          java-version: '25'
-          distribution: 'temurin'
-          cache: 'gradle'
-      - run: ./gradlew test --no-daemon
-        env:
-          SPRING_PROFILES_ACTIVE: test
+    tests:
+        name: Tests
+        runs-on: ubuntu-latest
+        steps:
+            -   uses: actions/checkout@v4
+            -   uses: actions/setup-java@v4
+                with:
+                    java-version: '25'
+                    distribution: 'temurin'
+                    cache: 'gradle'
+            -   run: ./gradlew test --no-daemon
+                env:
+                    SPRING_PROFILES_ACTIVE: test
 
-  build-jar:
-    name: Build JAR
-    needs: tests
-    runs-on: ubuntu-latest
-    outputs:
-      version: ${{ steps.ver.outputs.VERSION }}
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-java@v4
-        with:
-          java-version: '25'
-          distribution: 'temurin'
-          cache: 'gradle'
-      - id: ver
-        run: echo "VERSION=${GITHUB_REF_NAME#v}" >> $GITHUB_OUTPUT
-      - run: ./gradlew bootJar -PappVersion=${{ steps.ver.outputs.VERSION }} --no-daemon
-      - uses: actions/upload-artifact@v4
-        with:
-          name: jar
-          path: build/libs/WheresMyMoney-${{ steps.ver.outputs.VERSION }}.jar
+    build-jar:
+        name: Build JAR
+        needs: tests
+        runs-on: ubuntu-latest
+        outputs:
+            version: ${{ steps.ver.outputs.VERSION }}
+        steps:
+            -   uses: actions/checkout@v4
+            -   uses: actions/setup-java@v4
+                with:
+                    java-version: '25'
+                    distribution: 'temurin'
+                    cache: 'gradle'
+            -   id: ver
+                run: echo "VERSION=${GITHUB_REF_NAME#v}" >> $GITHUB_OUTPUT
+            -   run: ./gradlew bootJar -PappVersion=${{ steps.ver.outputs.VERSION }} --no-daemon
+            -   uses: actions/upload-artifact@v4
+                with:
+                    name: jar
+                    path: build/libs/WheresMyMoney-${{ steps.ver.outputs.VERSION }}.jar
 
-  native-linux:
-    name: Native (Linux)
-    needs: tests
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: graalvm/setup-graalvm@v1
-        with:
-          java-version: '25'
-          distribution: 'graalvm-community'
-          native-image: true
-          cache: 'gradle'
-      - id: ver
-        run: echo "VERSION=${GITHUB_REF_NAME#v}" >> $GITHUB_OUTPUT
-      - run: ./gradlew nativeCompile -PappVersion=${{ steps.ver.outputs.VERSION }} --no-daemon
-      - run: mv build/native/nativeCompile/wheresmymoney \
-              build/native/nativeCompile/wheresmymoney-${{ steps.ver.outputs.VERSION }}-linux
-      - uses: actions/upload-artifact@v4
-        with:
-          name: native-linux
-          path: build/native/nativeCompile/wheresmymoney-${{ steps.ver.outputs.VERSION }}-linux
+    native-linux:
+        name: Native (Linux)
+        needs: tests
+        runs-on: ubuntu-latest
+        steps:
+            -   uses: actions/checkout@v4
+            -   uses: graalvm/setup-graalvm@v1
+                with:
+                    java-version: '25'
+                    distribution: 'graalvm-community'
+                    native-image: true
+                    cache: 'gradle'
+            -   id: ver
+                run: echo "VERSION=${GITHUB_REF_NAME#v}" >> $GITHUB_OUTPUT
+            -   run: ./gradlew nativeCompile -PappVersion=${{ steps.ver.outputs.VERSION }} --no-daemon
+            -   run: mv build/native/nativeCompile/wheresmymoney build/native/nativeCompile/wheresmymoney-${{ steps.ver.outputs.VERSION }}-linux
+            -   uses: actions/upload-artifact@v4
+                with:
+                    name: native-linux
+                    path: build/native/nativeCompile/wheresmymoney-${{ steps.ver.outputs.VERSION }}-linux
 
-  native-macos:
-    name: Native (macOS)
-    needs: tests
-    runs-on: macos-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: graalvm/setup-graalvm@v1
-        with:
-          java-version: '25'
-          distribution: 'graalvm-community'
-          native-image: true
-          cache: 'gradle'
-      - id: ver
-        run: echo "VERSION=${GITHUB_REF_NAME#v}" >> $GITHUB_OUTPUT
-      - run: ./gradlew nativeCompile -PappVersion=${{ steps.ver.outputs.VERSION }} --no-daemon
-      - run: mv build/native/nativeCompile/wheresmymoney \
-                build/native/nativeCompile/wheresmymoney-${{ steps.ver.outputs.VERSION }}-macos
-      - uses: actions/upload-artifact@v4
-        with:
-          name: native-macos
-          path: build/native/nativeCompile/wheresmymoney-${{ steps.ver.outputs.VERSION }}-macos
+        native-macos:
+            name: Native (macOS)
+            needs: tests
+            runs-on: macos-latest
+            steps:
+                -   uses: actions/checkout@v4
+                -   uses: graalvm/setup-graalvm@v1
+                    with:
+                        java-version: '25'
+                        distribution: 'graalvm-community'
+                        native-image: true
+                        cache: 'gradle'
+                -   id: ver
+                    run: echo "VERSION=${GITHUB_REF_NAME#v}" >> $GITHUB_OUTPUT
+                -   run: ./gradlew nativeCompile -PappVersion=${{ steps.ver.outputs.VERSION }} --no-daemon
+                -   run: mv build/native/nativeCompile/wheresmymoney build/native/nativeCompile/wheresmymoney-${{ steps.ver.outputs.VERSION }}-macos
+                -   uses: actions/upload-artifact@v4
+                    with:
+                        name: native-macos
+                        path: build/native/nativeCompile/wheresmymoney-${{ steps.ver.outputs.VERSION }}-macos
 
-  native-windows:
-    name: Native (Windows)
-    needs: tests
-    runs-on: windows-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: graalvm/setup-graalvm@v1
-        with:
-          java-version: '25'
-          distribution: 'graalvm-community'
-          native-image: true
-          cache: 'gradle'
-      - id: ver
-        run: echo "VERSION=$($env:GITHUB_REF_NAME -replace '^v','')" >> $env:GITHUB_OUTPUT
-        shell: pwsh
-      - run: ./gradlew nativeCompile "-PappVersion=${{ steps.ver.outputs.VERSION }}" --no-daemon
-        shell: pwsh
-      - run: |
-            Rename-Item `
-              build/native/nativeCompile/wheresmymoney.exe `
-              wheresmymoney-${{ steps.ver.outputs.VERSION }}-windows.exe
-        shell: pwsh
-      - uses: actions/upload-artifact@v4
-        with:
-          name: native-windows
-          path: build/native/nativeCompile/wheresmymoney-${{ steps.ver.outputs.VERSION }}-windows.exe
-  release:
-    name: Release
-    needs: [build-jar, native-linux, native-macos, native-windows]
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write
-    steps:
-      - uses: actions/download-artifact@v4
-        with:
-          path: artifacts/
-          merge-multiple: false
-      - uses: softprops/action-gh-release@v2
-        with:
-          generate_release_notes: true
-          files: |
-            artifacts/jar/WheresMyMoney-${{ needs.build-jar.outputs.version }}.jar
-            artifacts/native-linux/wheresmymoney-${{ needs.build-jar.outputs.version }}-linux
-            artifacts/native-macos/wheresmymoney-${{ needs.build-jar.outputs.version }}-macos
-            artifacts/native-windows/wheresmymoney-${{ needs.build-jar.outputs.version }}-windows.exe
+        native-windows:
+            name: Native (Windows)
+            needs: tests
+            runs-on: windows-latest
+            steps:
+                -   uses: actions/checkout@v4
+                -   uses: graalvm/setup-graalvm@v1
+                    with:
+                        java-version: '25'
+                        distribution: 'graalvm-community'
+                        native-image: true
+                        cache: 'gradle'
+                -   id: ver
+                    run: echo "VERSION=$($env:GITHUB_REF_NAME -replace '^v','')" >> $env:GITHUB_OUTPUT
+                    shell: pwsh
+                -   run: ./gradlew nativeCompile "-PappVersion=${{ steps.ver.outputs.VERSION }}" --no-daemon
+                    shell: pwsh
+                -   run: Rename-Item -Path "build/native/nativeCompile/wheresmymoney.exe" -NewName "wheresmymoney-${{ steps.ver.outputs.VERSION }}-windows.exe"
+                    shell: pwsh
+                -   uses: actions/upload-artifact@v4
+                    with:
+                        name: native-windows
+                        path: build/native/nativeCompile/wheresmymoney-${{ steps.ver.outputs.VERSION }}-windows.exe
+
+        release:
+            name: Release
+            needs: [ build-jar, native-linux, native-macos, native-windows ]
+            runs-on: ubuntu-latest
+            permissions:
+                contents: write
+            steps:
+                -   uses: actions/download-artifact@v4
+                    with:
+                        path: artifacts/
+                        merge-multiple: false
+                -   uses: softprops/action-gh-release@v2
+                    with:
+                        generate_release_notes: true
+                        files: |
+                            artifacts/jar/WheresMyMoney-${{ needs.build-jar.outputs.version }}.jar
+                            artifacts/native-linux/wheresmymoney-${{ needs.build-jar.outputs.version }}-linux
+                            artifacts/native-macos/wheresmymoney-${{ needs.build-jar.outputs.version }}-macos
+                            artifacts/native-windows/wheresmymoney-${{ needs.build-jar.outputs.version }}-windows.exe
