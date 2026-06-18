@@ -102,11 +102,11 @@ public class TransactionScreen {
         table.getTableModel().clear();
         for (Transaction t : rows) {
             table.getTableModel().addRow(
-                    t.getDate().format(BR),
-                    t.getType().getLabel(),
-                    t.getCategory() != null ? t.getCategory().getName() : "-",
-                    abbreviate(t.getDescription()),
-                    CurrencyUtil.format(t.getAmount()));
+                    " " + t.getDate().format(BR) + " ",
+                    " " + t.getType().getLabel() + " ",
+                    " " + (t.getCategory() != null ? t.getCategory().getName() : "-") + " ",
+                    " " + abbreviate(t.getDescription()) + " ",
+                    " " + CurrencyUtil.format(t.getAmount()) + " ");
         }
     }
 

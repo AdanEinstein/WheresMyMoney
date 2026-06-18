@@ -1,12 +1,12 @@
 package br.com.adaneinstein.wheresmymoney.tui.screen;
 
 import br.com.adaneinstein.wheresmymoney.domain.model.Category;
-import br.com.adaneinstein.wheresmymoney.domain.model.MonthlyPayment;
+import br.com.adaneinstein.wheresmymoney.domain.model.MonthlyRevenue;
 import br.com.adaneinstein.wheresmymoney.domain.model.Subcategory;
 import br.com.adaneinstein.wheresmymoney.service.CategoryService;
-import br.com.adaneinstein.wheresmymoney.service.MonthlyPaymentService;
-import br.com.adaneinstein.wheresmymoney.service.MonthlyPaymentService.MonthlyPaymentView;
-import br.com.adaneinstein.wheresmymoney.service.MonthlyPaymentService.Totals;
+import br.com.adaneinstein.wheresmymoney.service.MonthlyRevenueService;
+import br.com.adaneinstein.wheresmymoney.service.MonthlyRevenueService.MonthlyRevenueView;
+import br.com.adaneinstein.wheresmymoney.service.MonthlyRevenueService.Totals;
 import br.com.adaneinstein.wheresmymoney.tui.component.EscClose;
 import br.com.adaneinstein.wheresmymoney.tui.component.Layouts;
 import br.com.adaneinstein.wheresmymoney.tui.component.MoneyMask;
@@ -43,29 +43,29 @@ import java.util.Locale;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
 
-/** Tela de gastos previstos mensais com checklist do que já foi pago. */
+/** Tela de receitas previstas mensais com checklist do que já foi recebido. */
 @Component
 @RequiredArgsConstructor
-public class MonthlyPaymentScreen {
+public class MonthlyRevenueScreen {
 
     private static final Locale PT_BR = Locale.forLanguageTag("pt-BR");
 
-    private final MonthlyPaymentService paymentService;
+    private final MonthlyRevenueService revenueService;
     private final CategoryService categoryService;
 
-    private final List<MonthlyPaymentView> views = new ArrayList<>();
+    private final List<MonthlyRevenueView> views = new ArrayList<>();
     private YearMonth current = YearMonth.now();
 
     // ── Public entry point ──────────────────────────────────────────────────────
 
     public void open(WindowBasedTextGUI gui) {
         current = YearMonth.now();
-        BasicWindow window = Layouts.fullScreen("Pagamentos mensais");
+        BasicWindow window = Layouts.fullScreen("Receitas mensais");
 
         Label monthLabel = new Label("");
         Label totalsLabel = new Label("");
 
-        PaymentListBox listBox = new PaymentListBox();
+        RevenueListBox listBox = new RevenueListBox();
         listBox.setOnToggle(() -> toggle(listBox, gui));
 
         Runnable refresh = () -> reload(listBox, monthLabel, totalsLabel);
@@ -85,7 +85,7 @@ public class MonthlyPaymentScreen {
         buttons.addComponent(new Button("Fechar (Esc)", window::close));
 
         Label hint = new Label(
-                "Space/Enter: marcar pago  PgUp/PgDn: mês  N: novo  E: editar  D: excluir  Esc: sair");
+                "Space/Enter: marcar recebida  PgUp/PgDn: mês  N: novo  E: editar  D: excluir  Esc: sair");
 
         Panel root = new Panel(new LinearLayout(Direction.VERTICAL));
         root.addComponent(hint);
@@ -108,11 +108,11 @@ public class MonthlyPaymentScreen {
 
     // ── State ──────────────────────────────────────────────────────────────────
 
-    private void reload(PaymentListBox listBox, Label monthLabel, Label totalsLabel) {
+    private void reload(RevenueListBox listBox, Label monthLabel, Label totalsLabel) {
         int prevIdx = listBox.getSelectedIndex();
 
         views.clear();
-        views.addAll(paymentService.view(current));
+        views.addAll(revenueService.view(current));
 
         listBox.clearItems();
         views.forEach(listBox::addItem);
@@ -124,59 +124,59 @@ public class MonthlyPaymentScreen {
         String monthName = current.getMonth().getDisplayName(TextStyle.FULL, PT_BR);
         monthLabel.setText(capitalize(monthName) + "/" + current.getYear());
 
-        Totals t = paymentService.totals(current);
+        Totals t = revenueService.totals(current);
         totalsLabel.setText("Previsto: " + CurrencyUtil.format(t.expected())
-                + "   Pago: " + CurrencyUtil.format(t.paid())
-                + "   Restante: " + CurrencyUtil.format(t.remaining()));
+                + "   Recebido: " + CurrencyUtil.format(t.received())
+                + "   A receber: " + CurrencyUtil.format(t.toReceive()));
     }
 
-    private void toggle(PaymentListBox listBox, WindowBasedTextGUI gui) {
+    private void toggle(RevenueListBox listBox, WindowBasedTextGUI gui) {
         int idx = listBox.getSelectedIndex();
         if (idx < 0 || idx >= views.size()) return;
-        MonthlyPaymentView v = views.get(idx);
+        MonthlyRevenueView v = views.get(idx);
         try {
-            if (v.paid()) {
-                paymentService.unmarkPaid(v.payment().getId(), current);
+            if (v.received()) {
+                revenueService.unmarkReceived(v.revenue().getId(), current);
             } else {
-                paymentService.markPaid(v.payment().getId(), current);
+                revenueService.markReceived(v.revenue().getId(), current);
             }
         } catch (RuntimeException e) {
             MessageDialog.showMessageDialog(gui, "Erro",
-                    "Não foi possível atualizar o pagamento: " + e.getMessage(), MessageDialogButton.OK);
+                    "Não foi possível atualizar a receita: " + e.getMessage(), MessageDialogButton.OK);
         }
     }
 
     // ── CRUD de templates ─────────────────────────────────────────────────────────
 
-    private void editSelected(WindowBasedTextGUI gui, PaymentListBox listBox) {
+    private void editSelected(WindowBasedTextGUI gui, RevenueListBox listBox) {
         int idx = listBox.getSelectedIndex();
         if (idx >= 0 && idx < views.size()) {
-            showForm(gui, views.get(idx).payment());
+            showForm(gui, views.get(idx).revenue());
         }
     }
 
-    private void deleteSelected(WindowBasedTextGUI gui, PaymentListBox listBox) {
+    private void deleteSelected(WindowBasedTextGUI gui, RevenueListBox listBox) {
         int idx = listBox.getSelectedIndex();
         if (idx < 0 || idx >= views.size()) return;
-        MonthlyPayment p = views.get(idx).payment();
+        MonthlyRevenue r = views.get(idx).revenue();
         MessageDialogButton choice = MessageDialog.showMessageDialog(gui, "Excluir",
-                "Excluir o gasto previsto \"" + p.getDescription() + "\"?\n"
+                "Excluir a receita prevista \"" + r.getDescription() + "\"?\n"
                         + "As transações já lançadas serão mantidas.",
                 MessageDialogButton.Yes, MessageDialogButton.No);
         if (choice == MessageDialogButton.Yes) {
-            paymentService.delete(p.getId());
+            revenueService.delete(r.getId());
         }
     }
 
     /** Formulário de criação/edição de template. Retorna true se salvou. */
-    private boolean showForm(WindowBasedTextGUI gui, MonthlyPayment existing) {
+    private boolean showForm(WindowBasedTextGUI gui, MonthlyRevenue existing) {
         List<Category> categories = categoryService.findAll();
         if (categories.isEmpty()) {
             MessageDialog.showMessageDialog(gui, "Atenção", "Cadastre uma categoria primeiro.", MessageDialogButton.OK);
             return false;
         }
 
-        BasicWindow form = new BasicWindow(existing == null ? "Novo gasto previsto" : "Editar gasto previsto");
+        BasicWindow form = new BasicWindow(existing == null ? "Nova receita prevista" : "Editar receita prevista");
         form.setHints(Set.of(Window.Hint.CENTERED));
 
         TextBox descBox = new TextBox(new com.googlecode.lanterna.TerminalSize(30, 1));
@@ -221,7 +221,7 @@ public class MonthlyPaymentScreen {
         grid.addComponent(descBox);
         grid.addComponent(new Label("Valor (R$)"));
         grid.addComponent(amountBox);
-        grid.addComponent(new Label("Dia venc. (1-31)"));
+        grid.addComponent(new Label("Dia receb. (1-31)"));
         grid.addComponent(dueDayBox);
         grid.addComponent(new Label("Categoria"));
         grid.addComponent(categoryCombo);
@@ -248,7 +248,7 @@ public class MonthlyPaymentScreen {
         return saved[0];
     }
 
-    private boolean save(WindowBasedTextGUI gui, MonthlyPayment existing, TextBox descBox, TextBox amountBox,
+    private boolean save(WindowBasedTextGUI gui, MonthlyRevenue existing, TextBox descBox, TextBox amountBox,
                          TextBox dueDayBox, ComboBox<Category> categoryCombo, ComboBox<SubOption> subCombo) {
         try {
             String desc = descBox.getText().trim();
@@ -265,9 +265,9 @@ public class MonthlyPaymentScreen {
             Subcategory sub = opt != null ? opt.sub() : null;
 
             if (existing == null) {
-                paymentService.create(desc, amount, dueDay, category, sub);
+                revenueService.create(desc, amount, dueDay, category, sub);
             } else {
-                paymentService.update(existing.getId(), desc, amount, dueDay, category, sub);
+                revenueService.update(existing.getId(), desc, amount, dueDay, category, sub);
             }
             return true;
         } catch (RuntimeException e) {
@@ -278,7 +278,7 @@ public class MonthlyPaymentScreen {
 
     // ── List box + renderer ─────────────────────────────────────────────────────
 
-    static final class PaymentListBox extends AbstractListBox<MonthlyPaymentView, PaymentListBox> {
+    static final class RevenueListBox extends AbstractListBox<MonthlyRevenueView, RevenueListBox> {
 
         private Runnable onToggle = () -> {};
         private Runnable refresh = () -> {};
@@ -287,8 +287,8 @@ public class MonthlyPaymentScreen {
         void setRefresh(Runnable r)  { this.refresh = r; }
 
         @Override
-        protected ListItemRenderer<MonthlyPaymentView, PaymentListBox> createDefaultListItemRenderer() {
-            return new PaymentRenderer();
+        protected ListItemRenderer<MonthlyRevenueView, RevenueListBox> createDefaultListItemRenderer() {
+            return new RevenueRenderer();
         }
 
         @Override
@@ -309,28 +309,28 @@ public class MonthlyPaymentScreen {
         }
     }
 
-    private static final class PaymentRenderer
-            extends AbstractListBox.ListItemRenderer<MonthlyPaymentView, PaymentListBox> {
+    private static final class RevenueRenderer
+            extends AbstractListBox.ListItemRenderer<MonthlyRevenueView, RevenueListBox> {
 
         @Override
-        public String getLabel(PaymentListBox listBox, int index, MonthlyPaymentView item) {
-            MonthlyPayment p = item.payment();
-            String check = item.paid() ? "[x] " : "[ ] ";
-            String desc = pad(p.getDescription(), 28);
-            String amount = pad(CurrencyUtil.format(p.getAmount()), 14);
-            return check + desc + amount + "  venc. dia " + p.getDueDay();
+        public String getLabel(RevenueListBox listBox, int index, MonthlyRevenueView item) {
+            MonthlyRevenue r = item.revenue();
+            String check = item.received() ? "[x] " : "[ ] ";
+            String desc = pad(r.getDescription(), 28);
+            String amount = pad(CurrencyUtil.format(r.getAmount()), 14);
+            return check + desc + amount + "  rec. dia " + r.getDueDay();
         }
 
         @Override
-        public void drawItem(TextGUIGraphics graphics, PaymentListBox listBox,
-                             int index, MonthlyPaymentView item, boolean selected, boolean focused) {
+        public void drawItem(TextGUIGraphics graphics, RevenueListBox listBox,
+                             int index, MonthlyRevenueView item, boolean selected, boolean focused) {
             if (selected && focused) {
                 graphics.applyThemeStyle(listBox.getThemeDefinition().getSelected());
             } else if (selected) {
                 graphics.applyThemeStyle(listBox.getThemeDefinition().getActive());
             } else {
                 graphics.applyThemeStyle(listBox.getThemeDefinition().getNormal());
-                graphics.setForegroundColor(item.paid() ? TextColor.ANSI.GREEN : TextColor.ANSI.YELLOW);
+                graphics.setForegroundColor(item.received() ? TextColor.ANSI.GREEN : TextColor.ANSI.YELLOW);
             }
             graphics.fill(' ');
             graphics.putString(0, 0, getLabel(listBox, index, item));
@@ -347,10 +347,10 @@ public class MonthlyPaymentScreen {
 
     private final class MonthKeys extends WindowListenerAdapter {
         private final WindowBasedTextGUI gui;
-        private final PaymentListBox listBox;
+        private final RevenueListBox listBox;
         private final Runnable refresh;
 
-        MonthKeys(WindowBasedTextGUI gui, PaymentListBox listBox, Runnable refresh) {
+        MonthKeys(WindowBasedTextGUI gui, RevenueListBox listBox, Runnable refresh) {
             this.gui = gui;
             this.listBox = listBox;
             this.refresh = refresh;
@@ -420,7 +420,7 @@ public class MonthlyPaymentScreen {
         try {
             return Integer.parseInt(raw.trim());
         } catch (NumberFormatException e) {
-            throw new IllegalArgumentException("Dia de vencimento inválido");
+            throw new IllegalArgumentException("Dia de recebimento inválido");
         }
     }
 
