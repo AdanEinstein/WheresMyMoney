@@ -2,10 +2,11 @@ plugins {
     java
     id("org.springframework.boot") version "4.1.0"
     id("io.spring.dependency-management") version "1.1.7"
+    id("org.graalvm.buildtools.native") version "0.10.6"
 }
 
 group = "br.com.adaneinstein"
-version = "0.0.1-SNAPSHOT"
+version = project.findProperty("appVersion")?.toString() ?: "0.0.1-SNAPSHOT"
 description = "WheresMyMoney"
 
 java {
@@ -25,6 +26,8 @@ dependencies {
     implementation("org.springframework.boot:spring-boot-starter-json")
     // Dialeto SQLite mantido pela comunidade Hibernate
     implementation("org.hibernate.orm:hibernate-community-dialects")
+    // Suporte de metadata/hints do Hibernate para GraalVM native image
+    runtimeOnly("org.hibernate.orm:hibernate-graalvm")
     runtimeOnly("org.xerial:sqlite-jdbc:3.50.1.0")
 
     testImplementation("org.springframework.boot:spring-boot-starter-test")
@@ -48,4 +51,22 @@ tasks.withType<Test> {
 
 tasks.named<org.springframework.boot.gradle.tasks.run.BootRun>("bootRun") {
     jvmArgs(jvmNativeArgs)
+}
+
+graalvmNative {
+    binaries {
+        named("main") {
+            imageName.set("wheresmymoney")
+            buildArgs.addAll(
+                "--enable-native-access=ALL-UNNAMED",
+                "-H:+ReportExceptionStackTraces"
+            )
+        }
+    }
+}
+
+tasks.processResources {
+    filesMatching("version.properties") {
+        expand("appVersion" to project.version)
+    }
 }

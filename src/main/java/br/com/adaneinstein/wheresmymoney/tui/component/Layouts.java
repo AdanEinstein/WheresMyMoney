@@ -1,5 +1,6 @@
 package br.com.adaneinstein.wheresmymoney.tui.component;
 
+import br.com.adaneinstein.wheresmymoney.config.AppVersion;
 import com.googlecode.lanterna.TerminalSize;
 import com.googlecode.lanterna.gui2.BasicWindow;
 import com.googlecode.lanterna.gui2.LayoutData;
@@ -23,9 +24,9 @@ public final class Layouts {
     private Layouts() {
     }
 
-    /** Cria uma janela em tela cheia. */
+    /** Cria uma janela em tela cheia com versão no título. */
     public static BasicWindow fullScreen(String title) {
-        BasicWindow window = new BasicWindow(title);
+        BasicWindow window = new BasicWindow(title + "  v" + AppVersion.get());
         window.setHints(Set.of(Window.Hint.FULL_SCREEN));
         return window;
     }

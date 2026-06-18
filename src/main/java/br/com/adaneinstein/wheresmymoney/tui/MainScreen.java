@@ -1,5 +1,6 @@
 package br.com.adaneinstein.wheresmymoney.tui;
 
+import br.com.adaneinstein.wheresmymoney.config.AppVersion;
 import br.com.adaneinstein.wheresmymoney.tui.screen.CategoryScreen;
 import br.com.adaneinstein.wheresmymoney.tui.screen.DashboardScreen;
 import br.com.adaneinstein.wheresmymoney.tui.screen.MonthlyPaymentScreen;
@@ -80,7 +81,7 @@ public class MainScreen {
         menu.addComponent(new Button("[Q] Sair", window::close));
         root.addComponent(menu);
         root.addComponent(new EmptySpace());
-        root.addComponent(new Label("Atalhos: D T C P I R /  •  Q sai"));
+        root.addComponent(new Label("Atalhos: D T C P I R /  •  Q sai  •  v" + AppVersion.get()));
 
         window.setComponent(root);
         window.addWindowListener(new MenuKeys(gui, window));
