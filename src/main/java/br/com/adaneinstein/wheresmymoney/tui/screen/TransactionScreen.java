@@ -7,6 +7,7 @@ import br.com.adaneinstein.wheresmymoney.domain.model.TransactionType;
 import br.com.adaneinstein.wheresmymoney.service.CategoryService;
 import br.com.adaneinstein.wheresmymoney.service.TransactionService;
 import br.com.adaneinstein.wheresmymoney.tui.component.DatePickerDialog;
+import br.com.adaneinstein.wheresmymoney.tui.component.CalculatorDialog;
 import br.com.adaneinstein.wheresmymoney.tui.component.EscClose;
 import br.com.adaneinstein.wheresmymoney.tui.component.Layouts;
 import br.com.adaneinstein.wheresmymoney.tui.component.MoneyMask;
@@ -45,6 +46,8 @@ public class TransactionScreen {
 
     private static final DateTimeFormatter BR = DateTimeFormatter.ofPattern("dd/MM/yyyy");
 
+    private static final CategoryOption ALL_CATEGORIES = new CategoryOption(null, "(todas)");
+    private static final SubOption ALL_SUBCATEGORIES = new SubOption(null, "(todas)");
     private static final SubOption NONE = new SubOption(null, "(nenhuma)");
 
     private static final List<String> SORT_COLUMNS =
@@ -53,15 +56,26 @@ public class TransactionScreen {
     private final TransactionService transactionService;
     private final CategoryService categoryService;
 
+    private final List<Transaction> allRows = new ArrayList<>();
     private final List<Transaction> rows = new ArrayList<>();
 
     private Table<String> table;
     private PeriodSelector period;
+    private ComboBox<CategoryOption> categoryFilterCombo;
+    private ComboBox<SubOption> subcategoryFilterCombo;
     private Label incomeLabel;
     private Label expenseLabel;
     private Label balanceLabel;
+    private boolean refreshingSubcategoryFilter = false;
     private String sortColumn = "Data";
     private boolean asc = false; // default: Data desc
+
+    private record CategoryOption(Category category, String label) {
+        @Override
+        public String toString() {
+            return label;
+        }
+    }
 
     /** Item do ComboBox de subcategoria: envolve a entidade e exibe o caminho indentado. */
     private record SubOption(Subcategory sub, String label) {
@@ -78,6 +92,21 @@ public class TransactionScreen {
         table.setVisibleRows(Layouts.visibleRows(gui, 11));
 
         period = new PeriodSelector(gui, this::reload);
+
+        categoryFilterCombo = new ComboBox<>();
+        subcategoryFilterCombo = new ComboBox<>();
+        loadCategoryFilterOptions();
+        refreshSubcategoryFilterOptions();
+
+        categoryFilterCombo.addListener((sel, prev, byUser) -> {
+            refreshSubcategoryFilterOptions();
+            reload();
+        });
+        subcategoryFilterCombo.addListener((sel, prev, byUser) -> {
+            if (!refreshingSubcategoryFilter) {
+                reload();
+            }
+        });
 
         ComboBox<String> sortCombo = new ComboBox<>();
         SORT_COLUMNS.forEach(sortCombo::addItem);
@@ -108,6 +137,10 @@ public class TransactionScreen {
 
         Panel header = new Panel(new LinearLayout(Direction.HORIZONTAL));
         header.addComponent(period);
+        header.addComponent(new Label("  Categoria:"));
+        header.addComponent(categoryFilterCombo);
+        header.addComponent(new Label("  Subcategoria:"));
+        header.addComponent(subcategoryFilterCombo);
         header.addComponent(new Label("  Ordenar:"));
         header.addComponent(sortCombo);
 
@@ -139,8 +172,28 @@ public class TransactionScreen {
     }
 
     private void reload() {
+        allRows.clear();
+        allRows.addAll(transactionService.findBetween(period.start(), period.end()));
+
+        Category selectedCategory = selectedCategoryFilter();
+        Subcategory selectedSubcategory = selectedSubcategoryFilter();
         rows.clear();
-        rows.addAll(transactionService.findBetween(period.start(), period.end()));
+        for (Transaction t : allRows) {
+            if (selectedCategory != null) {
+                if (t.getCategory() == null || t.getCategory().getId() == null
+                        || !t.getCategory().getId().equals(selectedCategory.getId())) {
+                    continue;
+                }
+            }
+            if (selectedSubcategory != null) {
+                if (t.getSubcategory() == null || t.getSubcategory().getId() == null
+                        || !t.getSubcategory().getId().equals(selectedSubcategory.getId())) {
+                    continue;
+                }
+            }
+            rows.add(t);
+        }
+
         sortRows();
         table.getTableModel().clear();
         for (Transaction t : rows) {
@@ -153,6 +206,59 @@ public class TransactionScreen {
                     " " + CurrencyUtil.format(t.getAmount()) + " ");
         }
         updateTotals();
+    }
+
+    private void loadCategoryFilterOptions() {
+        categoryFilterCombo.clearItems();
+        categoryFilterCombo.addItem(ALL_CATEGORIES);
+        for (Category category : categoryService.findAll()) {
+            categoryFilterCombo.addItem(new CategoryOption(category, category.getName()));
+        }
+        categoryFilterCombo.setSelectedIndex(0);
+    }
+
+    private void refreshSubcategoryFilterOptions() {
+        refreshingSubcategoryFilter = true;
+        try {
+            subcategoryFilterCombo.clearItems();
+            subcategoryFilterCombo.addItem(ALL_SUBCATEGORIES);
+
+            Category selectedCategory = selectedCategoryFilter();
+            if (selectedCategory != null && selectedCategory.getId() != null) {
+                List<SubOption> options = new ArrayList<>();
+                flattenOptions(categoryService.subcategoryForest(selectedCategory.getId()), 0, options);
+                options.forEach(subcategoryFilterCombo::addItem);
+            } else {
+                for (Category category : categoryService.findAll()) {
+                    List<SubOption> options = new ArrayList<>();
+                    flattenOptions(categoryService.subcategoryForest(category.getId()), 0, options);
+                    for (SubOption option : options) {
+                        subcategoryFilterCombo.addItem(new SubOption(
+                                option.sub(),
+                                category.getName() + " / " + option.label()));
+                    }
+                }
+            }
+            subcategoryFilterCombo.setSelectedIndex(0);
+        } finally {
+            refreshingSubcategoryFilter = false;
+        }
+    }
+
+    private Category selectedCategoryFilter() {
+        if (categoryFilterCombo == null) {
+            return null;
+        }
+        CategoryOption option = categoryFilterCombo.getSelectedItem();
+        return option != null ? option.category() : null;
+    }
+
+    private Subcategory selectedSubcategoryFilter() {
+        if (subcategoryFilterCombo == null) {
+            return null;
+        }
+        SubOption option = subcategoryFilterCombo.getSelectedItem();
+        return option != null ? option.sub() : null;
     }
 
     private void sortRows() {
@@ -302,8 +408,11 @@ public class TransactionScreen {
         Panel root = new Panel(new LinearLayout(Direction.VERTICAL));
         root.addComponent(grid);
         root.addComponent(new EmptySpace());
+        root.addComponent(new Label("F4 no campo Valor abre a calculadora"));
+        root.addComponent(new EmptySpace());
         root.addComponent(actions);
         form.setComponent(root);
+        CalculatorDialog.installShortcut(form, gui, amountBox);
         form.addWindowListener(EscClose.of(form));
         gui.addWindowAndWait(form);
         return saved[0];
