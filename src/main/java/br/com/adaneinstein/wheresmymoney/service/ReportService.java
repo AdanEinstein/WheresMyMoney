@@ -34,6 +34,14 @@ public class ReportService {
                 .toList();
     }
 
+    /** Receitas (INCOME) por categoria no período, ordenadas do maior para o menor. */
+    @Transactional(readOnly = true)
+    public List<CategoryTotal> incomeByCategory(LocalDate start, LocalDate end) {
+        return transactionRepository.totalsByCategory(start, end).stream()
+                .filter(ct -> ct.type() == TransactionType.INCOME)
+                .toList();
+    }
+
     /** Gastos (EXPENSE) por subcategoria no período, ordenados do maior para o menor. */
 @Transactional(readOnly = true)
 public List<SubcategoryTotalNode> spendingBySubcategory(LocalDate start, LocalDate end) {

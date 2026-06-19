@@ -75,57 +75,57 @@ public class DashboardScreen {
     content.addComponent(Layouts.title("Resumo de " + capitalize(monthName) + "/" + refMonth.getYear()));
     content.addComponent(new EmptySpace());
 
-    // Coluna esquerda: totais do período.
-    Panel totals = new Panel(new LinearLayout(Direction.VERTICAL));
+    // Faixa de totais no topo, em linha — libera toda a largura para as barras abaixo.
+    Panel totals = new Panel(new LinearLayout(Direction.HORIZONTAL));
     totals.addComponent(
         colored("Receitas:  " + CurrencyUtil.format(summary.income()), AppTheme.INCOME));
+    totals.addComponent(new Label("    "));
     totals.addComponent(
         colored("Despesas:  " + CurrencyUtil.format(summary.expense()), AppTheme.EXPENSE));
+    totals.addComponent(new Label("    "));
     TextColor balanceColor =
         summary.balance().signum() >= 0 ? AppTheme.INCOME : AppTheme.EXPENSE;
     totals.addComponent(colored("Saldo:     " + CurrencyUtil.format(summary.balance()), balanceColor));
+    content.addComponent(totals.withBorder(Borders.singleLine("Totais")));
 
-    // Coluna direita: maiores gastos, ocupando a largura restante.
-    int barWidth = Math.max(10, Layouts.cols(gui) / 3);
-    int maxRows = Math.max(5, Layouts.rows(gui) - 8);
+    // Hierarquia completa de gastos, ocupando a largura inteira.
+    int barWidth = Math.max(10, Layouts.cols(gui) - 45);
     Panel top = new Panel(new LinearLayout(Direction.VERTICAL));
     if (spending.isEmpty()) {
       top.addComponent(new Label("Sem despesas no período."));
     } else {
       BigDecimal max = spending.get(0).total();
-      spending.stream()
-          .limit(maxRows)
-          .forEach(
-              ct -> {
-                top.addComponent(
-                    new Label(
-                        String.format(
-                            "%-16s %18s  %s",
-                            truncate(ct.categoryName()),
-                            CurrencyUtil.format(ct.total()),
-                            Bars.bar(ct.total(), max, barWidth))));
-                for (SubcategoryTotalNode st :
-                    subsByCategory.getOrDefault(ct.categoryName(), List.of())) {
-                  renderSubcategory(top, st, max, barWidth, 1);
-                }
-              });
+      // ponytail: sem scroll — hierarquia muito longa pode exceder a altura e ser cortada.
+      spending.forEach(
+          ct -> {
+            top.addComponent(
+                new Label(
+                    String.format(
+                        "%-16s %18s  %s",
+                        truncate(ct.categoryName()),
+                        CurrencyUtil.format(ct.total()),
+                        Bars.bar(ct.total(), max, barWidth))));
+            for (SubcategoryTotalNode st :
+                subsByCategory.getOrDefault(ct.categoryName(), List.of())) {
+              renderSubcategory(top, st, max, barWidth, 1);
+            }
+          });
     }
-
-    Panel body = new Panel(new LinearLayout(Direction.HORIZONTAL));
-    body.addComponent(totals.withBorder(Borders.singleLine("Totais")));
-    body.addComponent(top.withBorder(Borders.singleLine("Maiores gastos do período")), Layouts.GROW);
-    content.addComponent(body, Layouts.GROW);
+    content.addComponent(top.withBorder(Borders.singleLine("Gastos por categoria")), Layouts.GROW);
   }
 
   private void renderSubcategory(
       Panel top, SubcategoryTotalNode st, BigDecimal max, int barWidth, int level) {
     String prefix = " ".repeat(level * 2) + "› ";
+    // ponytail: coluna esquerda fixa em 16 (= categorias) → valor/barra alinham em qualquer
+    // profundidade; prefix >= 13 satura nameRoom em 3, mas o alinhamento se mantém.
+    int nameRoom = Math.max(3, 16 - prefix.length());
+    String left = prefix + truncate(st.subcategoryName(), nameRoom);
     top.addComponent(
         new Label(
             String.format(
-                "%s%-12s %18s  %s",
-                prefix,
-                truncateSub(st.subcategoryName()),
+                "%-16s %18s  %s",
+                left,
                 CurrencyUtil.format(st.total()),
                 Bars.bar(st.total(), max, barWidth))));
     for (SubcategoryTotalNode child : st.children()) {
@@ -139,12 +139,12 @@ public class DashboardScreen {
         return label;
     }
 
-    private static String truncate(String s) {
-        return s.length() > 16 ? s.substring(0, 15) + "…" : s;
+    private static String truncate(String s, int width) {
+        return s.length() > width ? s.substring(0, width - 1) + "…" : s;
     }
 
-    private static String truncateSub(String s) {
-        return s.length() > 12 ? s.substring(0, 11) + "…" : s;
+    private static String truncate(String s) {
+        return truncate(s, 16);
     }
 
     private static String capitalize(String s) {

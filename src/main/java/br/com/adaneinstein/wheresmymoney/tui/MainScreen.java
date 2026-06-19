@@ -6,7 +6,6 @@ import br.com.adaneinstein.wheresmymoney.tui.screen.DashboardScreen;
 import br.com.adaneinstein.wheresmymoney.tui.screen.MonthlyPaymentScreen;
 import br.com.adaneinstein.wheresmymoney.tui.screen.MonthlyRevenueScreen;
 import br.com.adaneinstein.wheresmymoney.tui.screen.ReportScreen;
-import br.com.adaneinstein.wheresmymoney.tui.screen.SearchScreen;
 import br.com.adaneinstein.wheresmymoney.tui.screen.TransactionScreen;
 import br.com.adaneinstein.wheresmymoney.tui.component.Layouts;
 import com.googlecode.lanterna.gui2.BasicWindow;
@@ -41,7 +40,6 @@ public class MainScreen {
     private final MonthlyPaymentScreen monthlyPaymentScreen;
     private final MonthlyRevenueScreen monthlyRevenueScreen;
     private final ReportScreen reportScreen;
-    private final SearchScreen searchScreen;
 
     public void start() throws Exception {
         Screen screen = new TerminalScreen(new DefaultTerminalFactory().createTerminal());
@@ -71,12 +69,11 @@ public class MainScreen {
         menu.addComponent(new Button("[P] Pagamentos mensais", () -> monthlyPaymentScreen.open(gui)));
         menu.addComponent(new Button("[I] Receitas mensais", () -> monthlyRevenueScreen.open(gui)));
         menu.addComponent(new Button("[R] Relatórios", () -> reportScreen.open(gui)));
-        menu.addComponent(new Button("[/] Busca inteligente", () -> searchScreen.open(gui)));
         menu.addComponent(new EmptySpace());
         menu.addComponent(new Button("[Q] Sair", window::close));
         root.addComponent(menu);
         root.addComponent(new EmptySpace());
-        root.addComponent(Layouts.hint("Atalhos: D T C P I R /  •  Q sai  •  v" + AppVersion.get()));
+        root.addComponent(Layouts.hint("Atalhos: D T C P I R  •  Q sai  •  v" + AppVersion.get()));
 
         window.setComponent(root);
         window.addWindowListener(new MenuKeys(gui, window));
@@ -112,7 +109,6 @@ public class MainScreen {
                 case 'p' -> monthlyPaymentScreen.open(gui);
                 case 'i' -> monthlyRevenueScreen.open(gui);
                 case 'r' -> reportScreen.open(gui);
-                case '/' -> searchScreen.open(gui);
                 case 'q' -> window.close();
                 default -> handled.set(false);
             }

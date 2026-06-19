@@ -5,6 +5,9 @@ import br.com.adaneinstein.wheresmymoney.domain.model.Subcategory;
 import br.com.adaneinstein.wheresmymoney.domain.model.Transaction;
 import br.com.adaneinstein.wheresmymoney.domain.model.TransactionType;
 import br.com.adaneinstein.wheresmymoney.service.CategoryService;
+import br.com.adaneinstein.wheresmymoney.service.EmbeddingService;
+import br.com.adaneinstein.wheresmymoney.service.SearchResult;
+import br.com.adaneinstein.wheresmymoney.service.SemanticSearchService;
 import br.com.adaneinstein.wheresmymoney.service.TransactionService;
 import br.com.adaneinstein.wheresmymoney.tui.component.DatePickerDialog;
 import br.com.adaneinstein.wheresmymoney.tui.component.CalculatorDialog;
@@ -56,9 +59,14 @@ public class TransactionScreen {
 
     private final TransactionService transactionService;
     private final CategoryService categoryService;
+    private final SemanticSearchService searchService;
+    private final EmbeddingService embeddingService;
 
     private final List<Transaction> allRows = new ArrayList<>();
     private final List<Transaction> rows = new ArrayList<>();
+
+    /** Quando != null, a tabela mostra os resultados da busca em vez do período. */
+    private List<Transaction> searchHits = null;
 
     private Table<String> table;
     private PeriodSelector period;
@@ -155,11 +163,47 @@ public class TransactionScreen {
         totals.addComponent(new Label("   "));
         totals.addComponent(balanceLabel);
 
+        // Linha de busca semântica (movida da antiga tela "Busca inteligente").
+        Label searchStatus = new Label("");
+        updateStatus(searchStatus);
+        TextBox searchBox = new TextBox(new com.googlecode.lanterna.TerminalSize(36, 1));
+        Runnable doSearch = () -> {
+            String q = searchBox.getText().trim();
+            if (q.isEmpty()) {
+                searchHits = null;
+            } else {
+                searchHits = searchService.search(q, 50).stream()
+                        .map(SearchResult::transaction)
+                        .toList();
+            }
+            reload();
+        };
+        Panel searchBar = new Panel(new LinearLayout(Direction.HORIZONTAL));
+        searchBar.addComponent(new Label("Buscar:"));
+        searchBar.addComponent(searchBox, Layouts.GROW);
+        searchBar.addComponent(new Button("Buscar", doSearch));
+        searchBar.addComponent(new Button("Limpar", () -> {
+            searchBox.setText("");
+            searchHits = null;
+            reload();
+        }));
+        searchBar.addComponent(new Button("Reindexar", () -> {
+            int n = transactionService.reindexAll(true);
+            updateStatus(searchStatus);
+            MessageDialog.showMessageDialog(gui, "Reindexar",
+                    embeddingService.isAvailable()
+                            ? n + " transações reindexadas."
+                            : "Ollama indisponível — nada reindexado.",
+                    MessageDialogButton.OK);
+        }));
+
         reload();
 
         Panel root = new Panel(new LinearLayout(Direction.VERTICAL));
         root.addComponent(Layouts.hint("Enter edita • N adiciona • D exclui • O ordena (asc/desc) • Esc fecha"));
         root.addComponent(header);
+        root.addComponent(searchStatus);
+        root.addComponent(searchBar, Layouts.FILL);
         root.addComponent(new EmptySpace());
         root.addComponent(table, Layouts.GROW);
         root.addComponent(totals);
@@ -173,6 +217,14 @@ public class TransactionScreen {
     }
 
     private void reload() {
+        // Modo busca: usa os resultados (ordenados por relevância), ignorando período/filtros/sort.
+        if (searchHits != null) {
+            rows.clear();
+            rows.addAll(searchHits);
+            renderTable();
+            return;
+        }
+
         allRows.clear();
         allRows.addAll(transactionService.findBetween(period.start(), period.end()));
 
@@ -196,6 +248,10 @@ public class TransactionScreen {
         }
 
         sortRows();
+        renderTable();
+    }
+
+    private void renderTable() {
         table.getTableModel().clear();
         for (Transaction t : rows) {
             table.getTableModel().addRow(
@@ -207,6 +263,17 @@ public class TransactionScreen {
                     " " + CurrencyUtil.format(t.getAmount()) + " ");
         }
         updateTotals();
+    }
+
+    private void updateStatus(Label status) {
+        boolean ok = embeddingService.refreshAvailability();
+        if (ok) {
+            status.setText("● Ollama online (" + embeddingService.getModel() + ") — busca semântica ativa");
+            status.setForegroundColor(AppTheme.INCOME);
+        } else {
+            status.setText("○ Ollama offline — usando busca textual (fallback)");
+            status.setForegroundColor(AppTheme.WARN);
+        }
     }
 
     private void loadCategoryFilterOptions() {
