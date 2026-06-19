@@ -10,7 +10,9 @@ import br.com.adaneinstein.wheresmymoney.tui.component.DatePickerDialog;
 import br.com.adaneinstein.wheresmymoney.tui.component.EscClose;
 import br.com.adaneinstein.wheresmymoney.tui.component.Layouts;
 import br.com.adaneinstein.wheresmymoney.tui.component.MoneyMask;
+import br.com.adaneinstein.wheresmymoney.tui.component.PeriodSelector;
 import br.com.adaneinstein.wheresmymoney.util.CurrencyUtil;
+import com.googlecode.lanterna.TextColor;
 import com.googlecode.lanterna.gui2.BasicWindow;
 import com.googlecode.lanterna.gui2.Button;
 import com.googlecode.lanterna.gui2.ComboBox;
@@ -29,9 +31,11 @@ import com.googlecode.lanterna.gui2.table.Table;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Set;
 
@@ -43,10 +47,21 @@ public class TransactionScreen {
 
     private static final SubOption NONE = new SubOption(null, "(nenhuma)");
 
+    private static final List<String> SORT_COLUMNS =
+            List.of("Data", "Tipo", "Categoria", "Subcategoria", "Descrição", "Valor");
+
     private final TransactionService transactionService;
     private final CategoryService categoryService;
 
     private final List<Transaction> rows = new ArrayList<>();
+
+    private Table<String> table;
+    private PeriodSelector period;
+    private Label incomeLabel;
+    private Label expenseLabel;
+    private Label balanceLabel;
+    private String sortColumn = "Data";
+    private boolean asc = false; // default: Data desc
 
     /** Item do ComboBox de subcategoria: envolve a entidade e exibe o caminho indentado. */
     private record SubOption(Subcategory sub, String label) {
@@ -59,15 +74,23 @@ public class TransactionScreen {
     public void open(WindowBasedTextGUI gui) {
         BasicWindow window = Layouts.fullScreen("Transações");
 
-        Table<String> table = new Table<>("Data", "Tipo", "Categoria", "Descrição", "Valor");
-        table.setVisibleRows(Layouts.visibleRows(gui, 8));
-        reload(table);
+        table = new Table<>("Data", "Tipo", "Categoria", "Subcategoria", "Descrição", "Valor");
+        table.setVisibleRows(Layouts.visibleRows(gui, 11));
+
+        period = new PeriodSelector(gui, this::reload);
+
+        ComboBox<String> sortCombo = new ComboBox<>();
+        SORT_COLUMNS.forEach(sortCombo::addItem);
+        sortCombo.addListener((sel, prev, byUser) -> {
+            sortColumn = sortCombo.getSelectedItem();
+            reload();
+        });
 
         table.setSelectAction(() -> {
             int idx = table.getSelectedRow();
             if (idx >= 0 && idx < rows.size()) {
                 if (showForm(gui, rows.get(idx))) {
-                    reload(table);
+                    reload();
                 }
             }
         });
@@ -75,7 +98,7 @@ public class TransactionScreen {
         Panel buttons = new Panel(new LinearLayout(Direction.HORIZONTAL));
         buttons.addComponent(new Button("Adicionar (N)", () -> {
             if (showForm(gui, null)) {
-                reload(table);
+                reload();
             }
         }));
         buttons.addComponent(new Button("Excluir (D)", () -> {
@@ -83,10 +106,29 @@ public class TransactionScreen {
         }));
         buttons.addComponent(new Button("Fechar (Esc)", window::close));
 
+        Panel header = new Panel(new LinearLayout(Direction.HORIZONTAL));
+        header.addComponent(period);
+        header.addComponent(new Label("  Ordenar:"));
+        header.addComponent(sortCombo);
+
+        incomeLabel = colored("", TextColor.ANSI.GREEN_BRIGHT);
+        expenseLabel = colored("", TextColor.ANSI.RED_BRIGHT);
+        balanceLabel = colored("", TextColor.ANSI.GREEN_BRIGHT);
+        Panel totals = new Panel(new LinearLayout(Direction.HORIZONTAL));
+        totals.addComponent(incomeLabel);
+        totals.addComponent(new Label("   "));
+        totals.addComponent(expenseLabel);
+        totals.addComponent(new Label("   "));
+        totals.addComponent(balanceLabel);
+
+        reload();
+
         Panel root = new Panel(new LinearLayout(Direction.VERTICAL));
-        root.addComponent(new Label("Enter edita • N adiciona • D exclui • Esc fecha"));
+        root.addComponent(new Label("Enter edita • N adiciona • D exclui • O ordena (asc/desc) • Esc fecha"));
+        root.addComponent(header);
         root.addComponent(new EmptySpace());
         root.addComponent(table, Layouts.GROW);
+        root.addComponent(totals);
         root.addComponent(new EmptySpace());
         root.addComponent(buttons);
 
@@ -96,18 +138,60 @@ public class TransactionScreen {
         gui.addWindowAndWait(window);
     }
 
-    private void reload(Table<String> table) {
+    private void reload() {
         rows.clear();
-        rows.addAll(transactionService.findAll());
+        rows.addAll(transactionService.findBetween(period.start(), period.end()));
+        sortRows();
         table.getTableModel().clear();
         for (Transaction t : rows) {
             table.getTableModel().addRow(
                     " " + t.getDate().format(BR) + " ",
                     " " + t.getType().getLabel() + " ",
                     " " + (t.getCategory() != null ? t.getCategory().getName() : "-") + " ",
+                    " " + (t.getSubcategory() != null ? t.getSubcategory().getName() : "-") + " ",
                     " " + abbreviate(t.getDescription()) + " ",
                     " " + CurrencyUtil.format(t.getAmount()) + " ");
         }
+        updateTotals();
+    }
+
+    private void sortRows() {
+        Comparator<Transaction> cmp = switch (sortColumn) {
+            case "Tipo" -> Comparator.comparing(t -> t.getType().getLabel());
+            case "Categoria" -> Comparator.comparing(
+                    t -> t.getCategory() != null ? t.getCategory().getName() : "");
+            case "Subcategoria" -> Comparator.comparing(
+                    t -> t.getSubcategory() != null ? t.getSubcategory().getName() : "");
+            case "Descrição" -> Comparator.comparing(
+                    Transaction::getDescription, Comparator.nullsFirst(Comparator.naturalOrder()));
+            case "Valor" -> Comparator.comparing(Transaction::getAmount);
+            default -> Comparator.comparing(Transaction::getDate);
+        };
+        rows.sort(asc ? cmp : cmp.reversed());
+    }
+
+    private void updateTotals() {
+        BigDecimal income = BigDecimal.ZERO;
+        BigDecimal expense = BigDecimal.ZERO;
+        for (Transaction t : rows) {
+            if (t.getType() == TransactionType.INCOME) {
+                income = income.add(t.getAmount());
+            } else {
+                expense = expense.add(t.getAmount());
+            }
+        }
+        BigDecimal balance = income.subtract(expense);
+        incomeLabel.setText("Receitas: " + CurrencyUtil.format(income));
+        expenseLabel.setText("Despesas: " + CurrencyUtil.format(expense));
+        balanceLabel.setText("Saldo: " + CurrencyUtil.format(balance));
+        balanceLabel.setForegroundColor(
+                balance.signum() >= 0 ? TextColor.ANSI.GREEN_BRIGHT : TextColor.ANSI.RED_BRIGHT);
+    }
+
+    private static Label colored(String text, TextColor color) {
+        Label label = new Label(text);
+        label.setForegroundColor(color);
+        return label;
     }
 
     private void deleteSelected(WindowBasedTextGUI gui, Table<String> table) {
@@ -121,7 +205,7 @@ public class TransactionScreen {
                 MessageDialogButton.Yes, MessageDialogButton.No);
         if (choice == MessageDialogButton.Yes) {
             transactionService.delete(t.getId());
-            reload(table);
+            reload();
         }
     }
 
@@ -325,11 +409,15 @@ public class TransactionScreen {
             if (c == 'n') {
                 handled.set(true);
                 if (showForm(gui, null)) {
-                    reload(table);
+                    reload();
                 }
             } else if (c == 'd') {
                 handled.set(true);
                 deleteSelected(gui, table);
+            } else if (c == 'o') {
+                handled.set(true);
+                asc = !asc;
+                reload();
             }
         }
     }

@@ -3,9 +3,10 @@ package br.com.adaneinstein.wheresmymoney.service;
 import br.com.adaneinstein.wheresmymoney.domain.model.Transaction;
 import br.com.adaneinstein.wheresmymoney.domain.model.TransactionType;
 import br.com.adaneinstein.wheresmymoney.domain.repository.CategoryTotal;
+import br.com.adaneinstein.wheresmymoney.domain.repository.SubcategoryTotal;
 import br.com.adaneinstein.wheresmymoney.domain.repository.TransactionRepository;
 import br.com.adaneinstein.wheresmymoney.service.report.FinancialSummary;
-import br.com.adaneinstein.wheresmymoney.service.report.MonthlyPoint;
+import br.com.adaneinstein.wheresmymoney.service.report.SubcategoryTotalNode;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -14,6 +15,9 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.YearMonth;
 import java.util.ArrayList;
+import java.util.Map;
+import java.util.stream.Collectors;
+import br.com.adaneinstein.wheresmymoney.service.report.MonthlyPoint;
 import java.util.List;
 
 @Service
@@ -29,6 +33,38 @@ public class ReportService {
                 .filter(ct -> ct.type() == TransactionType.EXPENSE)
                 .toList();
     }
+
+    /** Gastos (EXPENSE) por subcategoria no período, ordenados do maior para o menor. */
+@Transactional(readOnly = true)
+public List<SubcategoryTotalNode> spendingBySubcategory(LocalDate start, LocalDate end) {
+    List<SubcategoryTotal> flatList =
+        transactionRepository.totalsBySubcategory(start, end).stream()
+            .filter(st -> st.type() == TransactionType.EXPENSE)
+            .toList();
+
+    Map<Long, SubcategoryTotalNode> nodes =
+        flatList.stream()
+            .map(
+                st ->
+                    new SubcategoryTotalNode(
+                        st.categoryName(),
+                        st.subcategoryId(),
+                        st.subcategoryName(),
+                        st.parentSubcategoryId(),
+                        st.type(),
+                        st.total()))
+            .collect(Collectors.toMap(SubcategoryTotalNode::subcategoryId, n -> n));
+
+    List<SubcategoryTotalNode> tree = new ArrayList<>();
+    for (SubcategoryTotalNode node : nodes.values()) {
+      if (node.parentSubcategoryId() != null) {
+        nodes.get(node.parentSubcategoryId()).children().add(node);
+      } else {
+        tree.add(node);
+      }
+    }
+    return tree;
+}
 
     /** Receitas x despesas do período. */
     @Transactional(readOnly = true)

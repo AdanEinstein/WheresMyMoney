@@ -44,4 +44,19 @@ public interface TransactionRepository extends JpaRepository<Transaction, Long> 
             order by sum(t.amount) desc
             """)
     List<CategoryTotal> totalsByCategory(@Param("start") LocalDate start, @Param("end") LocalDate end);
+
+    /**
+     * Total por subcategoria num período, agrupado por categoria + subcategoria.
+     * Ignora transações sem subcategoria.
+     */
+    @Query("""
+            select new br.com.adaneinstein.wheresmymoney.domain.repository.SubcategoryTotal(
+t.category.name, t.subcategory.id, t.subcategory.name, ps.id, t.type, sum(t.amount))
+from Transaction t
+left join t.subcategory.parentSubcategory ps
+where t.date between :start and :end and t.subcategory is not null
+group by t.category.name, t.subcategory.id, t.subcategory.name, ps.id, t.type
+order by sum(t.amount) desc
+            """)
+    List<SubcategoryTotal> totalsBySubcategory(@Param("start") LocalDate start, @Param("end") LocalDate end);
 }
