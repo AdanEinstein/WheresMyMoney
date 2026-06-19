@@ -64,7 +64,8 @@ graalvmNative {
             imageName.set("wheresmymoney")
             buildArgs.addAll(
                 "--enable-native-access=ALL-UNNAMED",
-                "-H:+ReportExceptionStackTraces"
+                "-H:+ReportExceptionStackTraces",
+                "--features=br.com.adaneinstein.wheresmymoney.tui.WindowsForeignFeature"
             )
         }
     }
