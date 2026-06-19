@@ -4,10 +4,7 @@ import br.com.adaneinstein.wheresmymoney.util.CurrencyUtil;
 import com.googlecode.lanterna.TextColor;
 import com.googlecode.lanterna.TerminalSize;
 import com.googlecode.lanterna.gui2.BasicWindow;
-import com.googlecode.lanterna.gui2.Button;
 import com.googlecode.lanterna.gui2.Direction;
-import com.googlecode.lanterna.gui2.EmptySpace;
-import com.googlecode.lanterna.gui2.GridLayout;
 import com.googlecode.lanterna.gui2.Label;
 import com.googlecode.lanterna.gui2.LinearLayout;
 import com.googlecode.lanterna.gui2.Panel;
@@ -61,27 +58,13 @@ public final class CalculatorDialog {
         dialog.setHints(Set.of(Window.Hint.CENTERED));
 
         TextBox expressionBox = new TextBox(new TerminalSize(32, 1));
-        Label resultLabel = new Label("");
-        Label help = new Label("Use + - * / e parênteses. C limpa, Backspace apaga, Enter aplica, Esc cancela.");
+        Label help = new Label("Digite a expressão e pressione Enter para aplicar. Esc cancela.");
         help.setForegroundColor(TextColor.ANSI.BLACK_BRIGHT);
 
         String initialExpression = normalizeInitialExpression(initialValue);
         if (!initialExpression.isEmpty()) {
             expressionBox.setText(initialExpression);
         }
-
-        Runnable refreshResult = () -> {
-            try {
-                BigDecimal value = evaluateExpression(expressionBox.getText());
-                resultLabel.setText("Resultado: " + CurrencyUtil.format(value));
-                resultLabel.setForegroundColor(TextColor.ANSI.GREEN_BRIGHT);
-            } catch (RuntimeException e) {
-                resultLabel.setText("Resultado: expressão inválida");
-                resultLabel.setForegroundColor(TextColor.ANSI.RED_BRIGHT);
-            }
-        };
-        expressionBox.setTextChangeListener((newText, changedByUser) -> refreshResult.run());
-        refreshResult.run();
 
         final String[] selectedValue = {null};
         Runnable apply = () -> {
@@ -94,58 +77,12 @@ public final class CalculatorDialog {
             }
         };
 
-        Panel keypad = new Panel(new GridLayout(4));
-        String[] keys = {
-                "7", "8", "9", "/",
-                "4", "5", "6", "*",
-                "1", "2", "3", "-",
-                "0", ",", "()", "+"
-        };
-        for (String key : keys) {
-            keypad.addComponent(new Button(key, () -> {
-                if ("()".equals(key)) {
-                    appendParentheses(expressionBox);
-                    return;
-                }
-                appendToken(expressionBox, key);
-            }));
-        }
-
-        Panel buttons = new Panel(new LinearLayout(Direction.HORIZONTAL));
-        buttons.addComponent(new Button("Aplicar", apply));
-        buttons.addComponent(new Button("Apagar", () -> backspace(expressionBox)));
-        buttons.addComponent(new Button("Limpar", () -> expressionBox.setText("")));
-        buttons.addComponent(new Button("Cancelar", dialog::close));
-
         Panel root = new Panel(new LinearLayout(Direction.VERTICAL));
         root.addComponent(new Label("Expressão"));
         root.addComponent(expressionBox);
-        root.addComponent(new EmptySpace());
-        root.addComponent(keypad);
-        root.addComponent(new EmptySpace());
-        root.addComponent(resultLabel);
-        root.addComponent(new EmptySpace());
         root.addComponent(help);
-        root.addComponent(new EmptySpace());
-        root.addComponent(buttons);
 
         dialog.setComponent(root);
-        dialog.addWindowListener(new WindowListenerAdapter() {
-            @Override
-            public void onInput(Window basePane, KeyStroke key, AtomicBoolean deliverEvent) {
-                if (key.getKeyType() == KeyType.Backspace) {
-                    backspace(expressionBox);
-                    deliverEvent.set(false);
-                    return;
-                }
-                if (key.getKeyType() == KeyType.Character && key.getCharacter() != null
-                        && Character.toLowerCase(key.getCharacter()) == 'c') {
-                    expressionBox.setText("");
-                    expressionBox.setCaretPosition(0, 0);
-                    deliverEvent.set(false);
-                }
-            }
-        });
         dialog.addWindowListener(new WindowListenerAdapter() {
             @Override
             public void onUnhandledInput(Window basePane, KeyStroke key, AtomicBoolean handled) {
@@ -158,30 +95,6 @@ public final class CalculatorDialog {
         dialog.addWindowListener(EscClose.of(dialog));
         gui.addWindowAndWait(dialog);
         return selectedValue[0];
-    }
-
-    private static void appendToken(TextBox box, String token) {
-        String current = box.getText();
-        String next = current + token;
-        box.setText(next);
-        box.setCaretPosition(0, next.length());
-    }
-
-    private static void backspace(TextBox box) {
-        String current = box.getText();
-        if (current.isEmpty()) {
-            return;
-        }
-        String next = current.substring(0, current.length() - 1);
-        box.setText(next);
-        box.setCaretPosition(0, next.length());
-    }
-
-    private static void appendParentheses(TextBox box) {
-        String current = box.getText();
-        String next = current + "()";
-        box.setText(next);
-        box.setCaretPosition(0, next.length() - 1);
     }
 
     static BigDecimal evaluateExpression(String expression) {
