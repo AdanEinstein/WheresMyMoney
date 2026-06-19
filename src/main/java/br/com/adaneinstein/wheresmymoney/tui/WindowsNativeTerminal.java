@@ -34,6 +34,8 @@ public class WindowsNativeTerminal extends CygwinTerminal {
 
     private static final int ENABLE_ECHO_INPUT = 0x0004;
     private static final int ENABLE_LINE_INPUT  = 0x0002;
+    // Sem isto o console não traduz setas/teclas especiais em sequências ANSI ESC no stdin
+    private static final int ENABLE_VIRTUAL_TERMINAL_INPUT = 0x0200;
 
     // ponytail: static init garante handles FFM prontos antes de super() chamar acquire()
     private static final MethodHandle GET_STD_HANDLE;
@@ -77,6 +79,9 @@ public class WindowsNativeTerminal extends CygwinTerminal {
         savedOutputMode = readConsoleMode(STD_OUTPUT_HANDLE);
         // Habilita VT100 no output imediatamente
         writeConsoleMode(STD_OUTPUT_HANDLE, savedOutputMode | OUT_VT_FLAGS);
+        // Habilita VT input: setas/Tab chegam como sequências ANSI que o CygwinTerminal entende.
+        // LINE/ECHO seguem desligados depois pelo Lanterna em acquire().
+        writeConsoleMode(STD_INPUT_HANDLE, savedInputMode | ENABLE_VIRTUAL_TERMINAL_INPUT);
     }
 
     @Override
