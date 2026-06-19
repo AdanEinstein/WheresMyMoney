@@ -12,7 +12,7 @@ WheresMyMoney é uma aplicação TUI (Terminal User Interface) para gerenciar su
 
 ### Dashboard `[D]`
 
-Resumo financeiro do mês: total de receitas, despesas e saldo. Exibe as categorias com maior gasto em gráfico de barras, com destaque em verde para saldo positivo e vermelho para negativo.
+Resumo financeiro por período selecionável: total de receitas (verde), despesas (vermelho) e saldo. Exibe breakdown hierárquico por categoria e subcategoria com gráficos de barras proporcionais à largura do terminal. Use o seletor de período para filtrar qualquer intervalo de datas.
 
 <!-- SCREENSHOT: dashboard.png -->
 
@@ -20,7 +20,7 @@ Resumo financeiro do mês: total de receitas, despesas e saldo. Exibe as categor
 
 ### Transações `[T]`
 
-Lista todas as transações do período em tabela (data, tipo, categoria, descrição, valor). Permite adicionar `[N]`, editar `[Enter]` e excluir `[D]` lançamentos. O formulário suporta categoria e subcategoria, notas e seleção de data via calendário navegável.
+Lista transações em tabela (data, tipo, categoria, subcategoria, descrição, valor) com seletor de período e filtros por categoria. Ordene por qualquer coluna com `[O]` para alternar asc/desc. Rodapé exibe totais de Receitas, Despesas e Saldo das linhas visíveis. Busca semântica via Ollama com fallback textual. Atalho `[F4]` no campo valor abre calculadora. Teclas: `[N]` novo, `[Enter]` editar, `[D]` excluir.
 
 <!-- SCREENSHOT: transacoes.png -->
 
@@ -44,7 +44,7 @@ Lista os pagamentos recorrentes esperados para o mês com checklist de quitaçã
 
 ### Receitas Mensais `[I]`
 
-Espelha a tela de pagamentos, mas para receitas recorrentes. Acompanhe o que já foi recebido no mês e registre as entradas diretamente pelo checklist.
+Checklist de receitas recorrentes esperadas no mês. Cada item exibe descrição, valor e dia de recebimento — verde se já recebido, âmbar se pendente. Rodapé mostra Previsto, Recebido e A receber. Navegue entre meses com `[PgUp]`/`[PgDn]` ou vírgula/ponto. `[Espaço]`/`[Enter]` marca como recebido; `[N]`/`[E]`/`[D]` gerenciam os modelos recorrentes. Atalho `[F4]` no campo valor abre calculadora.
 
 <!-- SCREENSHOT: receitas-mensais.png -->
 
@@ -52,7 +52,7 @@ Espelha a tela de pagamentos, mas para receitas recorrentes. Acompanhe o que já
 
 ### Relatórios `[R]`
 
-Análise financeira por período: mês atual, mês anterior ou ano inteiro. Exibe breakdown por categoria com gráficos de barras e totais consolidados.
+Análise financeira com seleção livre de período (combo de ano e mês). Navegue entre meses com `[←]`/`[→]`. Exibe gráfico de linha duplo com receitas (verde) e despesas (vermelho) ao longo de 12 meses. Painel lateral detalha categorias do mês selecionado com totais de Receitas, Gastos e Saldo.
 
 <!-- SCREENSHOT: relatorios.png -->
 
