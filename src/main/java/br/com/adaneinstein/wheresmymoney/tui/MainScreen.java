@@ -8,13 +8,12 @@ import br.com.adaneinstein.wheresmymoney.tui.screen.MonthlyRevenueScreen;
 import br.com.adaneinstein.wheresmymoney.tui.screen.ReportScreen;
 import br.com.adaneinstein.wheresmymoney.tui.screen.SearchScreen;
 import br.com.adaneinstein.wheresmymoney.tui.screen.TransactionScreen;
-import com.googlecode.lanterna.TextColor;
+import br.com.adaneinstein.wheresmymoney.tui.component.Layouts;
 import com.googlecode.lanterna.gui2.BasicWindow;
 import com.googlecode.lanterna.gui2.Button;
 import com.googlecode.lanterna.gui2.Direction;
 import com.googlecode.lanterna.gui2.EmptySpace;
 import com.googlecode.lanterna.gui2.GridLayout;
-import com.googlecode.lanterna.gui2.Label;
 import com.googlecode.lanterna.gui2.LinearLayout;
 import com.googlecode.lanterna.gui2.MultiWindowTextGUI;
 import com.googlecode.lanterna.gui2.Panel;
@@ -61,12 +60,8 @@ public class MainScreen {
         window.setHints(Set.of(Window.Hint.CENTERED));
 
         Panel root = new Panel(new LinearLayout(Direction.VERTICAL));
-        Label title = new Label("  💰  WheresMyMoney  ");
-        title.setForegroundColor(TextColor.ANSI.GREEN_BRIGHT);
-        root.addComponent(title);
-        Label subtitle = new Label("  Controle de gastos e receitas  ");
-        subtitle.setForegroundColor(TextColor.ANSI.CYAN);
-        root.addComponent(subtitle);
+        root.addComponent(Layouts.title("  WheresMyMoney  "));
+        root.addComponent(Layouts.hint("  Controle de gastos e receitas  "));
         root.addComponent(new EmptySpace());
 
         Panel menu = new Panel(new GridLayout(1));
@@ -81,7 +76,7 @@ public class MainScreen {
         menu.addComponent(new Button("[Q] Sair", window::close));
         root.addComponent(menu);
         root.addComponent(new EmptySpace());
-        root.addComponent(new Label("Atalhos: D T C P I R /  •  Q sai  •  v" + AppVersion.get()));
+        root.addComponent(Layouts.hint("Atalhos: D T C P I R /  •  Q sai  •  v" + AppVersion.get()));
 
         window.setComponent(root);
         window.addWindowListener(new MenuKeys(gui, window));

@@ -1,8 +1,11 @@
 package br.com.adaneinstein.wheresmymoney.tui.component;
 
 import br.com.adaneinstein.wheresmymoney.config.AppVersion;
+import br.com.adaneinstein.wheresmymoney.tui.AppTheme;
+import com.googlecode.lanterna.SGR;
 import com.googlecode.lanterna.TerminalSize;
 import com.googlecode.lanterna.gui2.BasicWindow;
+import com.googlecode.lanterna.gui2.Label;
 import com.googlecode.lanterna.gui2.LayoutData;
 import com.googlecode.lanterna.gui2.LinearLayout;
 import com.googlecode.lanterna.gui2.Window;
@@ -46,5 +49,20 @@ public final class Layouts {
     /** Linhas visíveis para tabelas/painéis, descontando {@code reserved} linhas de cromo. */
     public static int visibleRows(WindowBasedTextGUI gui, int reserved) {
         return Math.max(5, rows(gui) - reserved);
+    }
+
+    /** Linha de dicas/atalhos, em cor apagada para não competir com o conteúdo. */
+    public static Label hint(String text) {
+        Label label = new Label(text);
+        label.setForegroundColor(AppTheme.MUTED);
+        return label;
+    }
+
+    /** Título de seção: cor de destaque e negrito. */
+    public static Label title(String text) {
+        Label label = new Label(text);
+        label.setForegroundColor(AppTheme.ACCENT);
+        label.addStyle(SGR.BOLD);
+        return label;
     }
 }

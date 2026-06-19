@@ -8,6 +8,7 @@ import br.com.adaneinstein.wheresmymoney.tui.component.Bars;
 import br.com.adaneinstein.wheresmymoney.tui.component.EscClose;
 import br.com.adaneinstein.wheresmymoney.tui.component.Layouts;
 import br.com.adaneinstein.wheresmymoney.tui.component.PeriodSelector;
+import br.com.adaneinstein.wheresmymoney.tui.AppTheme;
 import br.com.adaneinstein.wheresmymoney.util.CurrencyUtil;
 import com.googlecode.lanterna.TextColor;
 import com.googlecode.lanterna.gui2.BasicWindow;
@@ -71,19 +72,17 @@ public class DashboardScreen {
 
     YearMonth refMonth = YearMonth.from(start);
     String monthName = refMonth.getMonth().getDisplayName(TextStyle.FULL, PT_BR);
-    content.addComponent(new Label("Resumo de " + capitalize(monthName) + "/" + refMonth.getYear()));
+    content.addComponent(Layouts.title("Resumo de " + capitalize(monthName) + "/" + refMonth.getYear()));
     content.addComponent(new EmptySpace());
 
     // Coluna esquerda: totais do período.
     Panel totals = new Panel(new LinearLayout(Direction.VERTICAL));
     totals.addComponent(
-        colored("Receitas:  " + CurrencyUtil.format(summary.income()), TextColor.ANSI.GREEN_BRIGHT));
+        colored("Receitas:  " + CurrencyUtil.format(summary.income()), AppTheme.INCOME));
     totals.addComponent(
-        colored("Despesas:  " + CurrencyUtil.format(summary.expense()), TextColor.ANSI.RED_BRIGHT));
+        colored("Despesas:  " + CurrencyUtil.format(summary.expense()), AppTheme.EXPENSE));
     TextColor balanceColor =
-        summary.balance().signum() >= 0
-            ? TextColor.ANSI.GREEN_BRIGHT
-            : TextColor.ANSI.RED_BRIGHT;
+        summary.balance().signum() >= 0 ? AppTheme.INCOME : AppTheme.EXPENSE;
     totals.addComponent(colored("Saldo:     " + CurrencyUtil.format(summary.balance()), balanceColor));
 
     // Coluna direita: maiores gastos, ocupando a largura restante.

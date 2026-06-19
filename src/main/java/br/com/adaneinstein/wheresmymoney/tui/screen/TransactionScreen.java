@@ -12,6 +12,7 @@ import br.com.adaneinstein.wheresmymoney.tui.component.EscClose;
 import br.com.adaneinstein.wheresmymoney.tui.component.Layouts;
 import br.com.adaneinstein.wheresmymoney.tui.component.MoneyMask;
 import br.com.adaneinstein.wheresmymoney.tui.component.PeriodSelector;
+import br.com.adaneinstein.wheresmymoney.tui.AppTheme;
 import br.com.adaneinstein.wheresmymoney.util.CurrencyUtil;
 import com.googlecode.lanterna.TextColor;
 import com.googlecode.lanterna.gui2.BasicWindow;
@@ -144,9 +145,9 @@ public class TransactionScreen {
         header.addComponent(new Label("  Ordenar:"));
         header.addComponent(sortCombo);
 
-        incomeLabel = colored("", TextColor.ANSI.GREEN_BRIGHT);
-        expenseLabel = colored("", TextColor.ANSI.RED_BRIGHT);
-        balanceLabel = colored("", TextColor.ANSI.GREEN_BRIGHT);
+        incomeLabel = colored("", AppTheme.INCOME);
+        expenseLabel = colored("", AppTheme.EXPENSE);
+        balanceLabel = colored("", AppTheme.INCOME);
         Panel totals = new Panel(new LinearLayout(Direction.HORIZONTAL));
         totals.addComponent(incomeLabel);
         totals.addComponent(new Label("   "));
@@ -157,7 +158,7 @@ public class TransactionScreen {
         reload();
 
         Panel root = new Panel(new LinearLayout(Direction.VERTICAL));
-        root.addComponent(new Label("Enter edita • N adiciona • D exclui • O ordena (asc/desc) • Esc fecha"));
+        root.addComponent(Layouts.hint("Enter edita • N adiciona • D exclui • O ordena (asc/desc) • Esc fecha"));
         root.addComponent(header);
         root.addComponent(new EmptySpace());
         root.addComponent(table, Layouts.GROW);
@@ -291,7 +292,7 @@ public class TransactionScreen {
         expenseLabel.setText("Despesas: " + CurrencyUtil.format(expense));
         balanceLabel.setText("Saldo: " + CurrencyUtil.format(balance));
         balanceLabel.setForegroundColor(
-                balance.signum() >= 0 ? TextColor.ANSI.GREEN_BRIGHT : TextColor.ANSI.RED_BRIGHT);
+                balance.signum() >= 0 ? AppTheme.INCOME : AppTheme.EXPENSE);
     }
 
     private static Label colored(String text, TextColor color) {
@@ -408,7 +409,7 @@ public class TransactionScreen {
         Panel root = new Panel(new LinearLayout(Direction.VERTICAL));
         root.addComponent(grid);
         root.addComponent(new EmptySpace());
-        root.addComponent(new Label("F4 no campo Valor abre a calculadora"));
+        root.addComponent(Layouts.hint("F4 no campo Valor abre a calculadora"));
         root.addComponent(new EmptySpace());
         root.addComponent(actions);
         form.setComponent(root);

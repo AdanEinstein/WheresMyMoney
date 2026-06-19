@@ -9,6 +9,7 @@ import br.com.adaneinstein.wheresmymoney.tui.component.Bars;
 import br.com.adaneinstein.wheresmymoney.tui.component.EscClose;
 import br.com.adaneinstein.wheresmymoney.tui.component.Layouts;
 import br.com.adaneinstein.wheresmymoney.tui.component.PeriodSelector;
+import br.com.adaneinstein.wheresmymoney.tui.AppTheme;
 import br.com.adaneinstein.wheresmymoney.util.CurrencyUtil;
 import com.googlecode.lanterna.TextColor;
 import com.googlecode.lanterna.gui2.BasicWindow;
@@ -66,15 +67,13 @@ public class ReportScreen {
 
     FinancialSummary summary = reportService.summary(start, end);
     content.addComponent(
-        colored("Receitas: " + CurrencyUtil.format(summary.income()), TextColor.ANSI.GREEN_BRIGHT));
+        colored("Receitas: " + CurrencyUtil.format(summary.income()), AppTheme.INCOME));
     content.addComponent(
-        colored("Despesas: " + CurrencyUtil.format(summary.expense()), TextColor.ANSI.RED_BRIGHT));
+        colored("Despesas: " + CurrencyUtil.format(summary.expense()), AppTheme.EXPENSE));
     content.addComponent(
         colored(
             "Saldo:    " + CurrencyUtil.format(summary.balance()),
-            summary.balance().signum() >= 0
-                ? TextColor.ANSI.GREEN_BRIGHT
-                : TextColor.ANSI.RED_BRIGHT));
+            summary.balance().signum() >= 0 ? AppTheme.INCOME : AppTheme.EXPENSE));
 
     int barWidth = Math.max(10, Layouts.cols(gui) / 4);
     Panel byCat = new Panel(new LinearLayout(Direction.VERTICAL));

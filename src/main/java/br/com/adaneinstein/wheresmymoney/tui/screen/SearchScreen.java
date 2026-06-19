@@ -7,8 +7,8 @@ import br.com.adaneinstein.wheresmymoney.service.SemanticSearchService;
 import br.com.adaneinstein.wheresmymoney.service.TransactionService;
 import br.com.adaneinstein.wheresmymoney.tui.component.EscClose;
 import br.com.adaneinstein.wheresmymoney.tui.component.Layouts;
+import br.com.adaneinstein.wheresmymoney.tui.AppTheme;
 import br.com.adaneinstein.wheresmymoney.util.CurrencyUtil;
-import com.googlecode.lanterna.TextColor;
 import com.googlecode.lanterna.gui2.BasicWindow;
 import com.googlecode.lanterna.gui2.Borders;
 import com.googlecode.lanterna.gui2.Button;
@@ -45,7 +45,7 @@ public class SearchScreen {
 
         TextBox queryBox = new TextBox(new com.googlecode.lanterna.TerminalSize(36, 1));
         Panel results = new Panel(new LinearLayout(Direction.VERTICAL));
-        results.addComponent(new Label("Digite uma consulta e pressione Buscar."));
+        results.addComponent(Layouts.hint("Digite uma consulta e pressione Buscar."));
 
         Runnable doSearch = () -> {
             List<SearchResult> found = searchService.search(queryBox.getText(), 15);
@@ -84,10 +84,10 @@ public class SearchScreen {
         boolean ok = embeddingService.refreshAvailability();
         if (ok) {
             status.setText("● Ollama online (" + embeddingService.getModel() + ") — busca semântica ativa");
-            status.setForegroundColor(TextColor.ANSI.GREEN_BRIGHT);
+            status.setForegroundColor(AppTheme.INCOME);
         } else {
             status.setText("○ Ollama offline — usando busca textual (fallback)");
-            status.setForegroundColor(TextColor.ANSI.YELLOW_BRIGHT);
+            status.setForegroundColor(AppTheme.WARN);
         }
     }
 
@@ -107,7 +107,7 @@ public class SearchScreen {
                     CurrencyUtil.format(t.getAmount()),
                     t.getCategory() != null ? t.getCategory().getName() : ""));
             line.setForegroundColor(r.origin() == SearchResult.Origin.SEMANTIC
-                    ? TextColor.ANSI.CYAN_BRIGHT : TextColor.ANSI.WHITE);
+                    ? AppTheme.INFO : AppTheme.FG);
             results.addComponent(line);
         }
     }

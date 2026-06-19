@@ -11,6 +11,7 @@ import br.com.adaneinstein.wheresmymoney.tui.component.CalculatorDialog;
 import br.com.adaneinstein.wheresmymoney.tui.component.EscClose;
 import br.com.adaneinstein.wheresmymoney.tui.component.Layouts;
 import br.com.adaneinstein.wheresmymoney.tui.component.MoneyMask;
+import br.com.adaneinstein.wheresmymoney.tui.AppTheme;
 import br.com.adaneinstein.wheresmymoney.util.CurrencyUtil;
 import com.googlecode.lanterna.TextColor;
 import com.googlecode.lanterna.gui2.AbstractListBox;
@@ -85,7 +86,7 @@ public class MonthlyPaymentScreen {
         buttons.addComponent(new Button("Excluir (D)", () -> { deleteSelected(gui, listBox); refresh.run(); }));
         buttons.addComponent(new Button("Fechar (Esc)", window::close));
 
-        Label hint = new Label(
+        Label hint = Layouts.hint(
                 "Space/Enter: marcar pago  PgUp/PgDn: mês  N: novo  E: editar  D: excluir  Esc: sair");
 
         Panel root = new Panel(new LinearLayout(Direction.VERTICAL));
@@ -242,7 +243,7 @@ public class MonthlyPaymentScreen {
         Panel root = new Panel(new LinearLayout(Direction.VERTICAL));
         root.addComponent(grid);
         root.addComponent(new EmptySpace());
-        root.addComponent(new Label("F4 no campo Valor abre a calculadora"));
+        root.addComponent(Layouts.hint("F4 no campo Valor abre a calculadora"));
         root.addComponent(new EmptySpace());
         root.addComponent(actions);
         form.setComponent(root);
@@ -334,7 +335,7 @@ public class MonthlyPaymentScreen {
                 graphics.applyThemeStyle(listBox.getThemeDefinition().getActive());
             } else {
                 graphics.applyThemeStyle(listBox.getThemeDefinition().getNormal());
-                graphics.setForegroundColor(item.paid() ? TextColor.ANSI.GREEN : TextColor.ANSI.YELLOW);
+                graphics.setForegroundColor(item.paid() ? AppTheme.INCOME : AppTheme.WARN);
             }
             graphics.fill(' ');
             graphics.putString(0, 0, getLabel(listBox, index, item));

@@ -7,6 +7,7 @@ import br.com.adaneinstein.wheresmymoney.service.CategoryService;
 import br.com.adaneinstein.wheresmymoney.service.CategoryService.SubTree;
 import br.com.adaneinstein.wheresmymoney.tui.component.EscClose;
 import br.com.adaneinstein.wheresmymoney.tui.component.Layouts;
+import br.com.adaneinstein.wheresmymoney.tui.AppTheme;
 import com.googlecode.lanterna.TextColor;
 import com.googlecode.lanterna.gui2.AbstractListBox;
 import com.googlecode.lanterna.gui2.BasicWindow;
@@ -75,7 +76,7 @@ public class CategoryScreen {
         buttons.addComponent(new Button("Excluir (D)", () -> deleteFromTree(gui, treeBox)));
         buttons.addComponent(new Button("Fechar (Esc)", window::close));
 
-        Label hint = new Label(
+        Label hint = Layouts.hint(
                 "Space/Enter: expandir/editar  N: nova cat  S: add sub (aninhada)  E: editar sub  D: excluir  Esc: sair");
 
         Panel root = new Panel(new LinearLayout(Direction.VERTICAL));
@@ -322,9 +323,9 @@ public class CategoryScreen {
     private static final class TreeNodeRenderer
             extends AbstractListBox.ListItemRenderer<TreeNode, CategoryTreeBox> {
 
-        // EXPENSE → red, INCOME → green  (bright variants for better visibility)
-        private static final TextColor EXPENSE_COLOR = TextColor.ANSI.RED;
-        private static final TextColor INCOME_COLOR  = TextColor.ANSI.GREEN;
+        // EXPENSE → vermelho, INCOME → verde (paleta do AppTheme)
+        private static final TextColor EXPENSE_COLOR = AppTheme.EXPENSE;
+        private static final TextColor INCOME_COLOR  = AppTheme.INCOME;
 
         @Override
         public String getLabel(CategoryTreeBox listBox, int index, TreeNode item) {
