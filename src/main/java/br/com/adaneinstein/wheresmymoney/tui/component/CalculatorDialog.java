@@ -58,6 +58,7 @@ public final class CalculatorDialog {
         dialog.setHints(Set.of(Window.Hint.CENTERED));
 
         TextBox expressionBox = new TextBox(new TerminalSize(32, 1));
+        Label resultLabel = new Label("");
         Label help = new Label("Digite a expressão e pressione Enter para aplicar. Esc cancela.");
         help.setForegroundColor(TextColor.ANSI.BLACK_BRIGHT);
 
@@ -65,6 +66,19 @@ public final class CalculatorDialog {
         if (!initialExpression.isEmpty()) {
             expressionBox.setText(initialExpression);
         }
+
+        Runnable refreshResult = () -> {
+            try {
+                BigDecimal value = evaluateExpression(expressionBox.getText());
+                resultLabel.setText("Resultado: " + CurrencyUtil.format(value));
+                resultLabel.setForegroundColor(TextColor.ANSI.GREEN_BRIGHT);
+            } catch (RuntimeException e) {
+                resultLabel.setText("Resultado: expressão inválida");
+                resultLabel.setForegroundColor(TextColor.ANSI.RED_BRIGHT);
+            }
+        };
+        expressionBox.setTextChangeListener((newText, changedByUser) -> refreshResult.run());
+        refreshResult.run();
 
         final String[] selectedValue = {null};
         Runnable apply = () -> {
@@ -80,10 +94,19 @@ public final class CalculatorDialog {
         Panel root = new Panel(new LinearLayout(Direction.VERTICAL));
         root.addComponent(new Label("Expressão"));
         root.addComponent(expressionBox);
+        root.addComponent(resultLabel);
         root.addComponent(help);
 
         dialog.setComponent(root);
         dialog.addWindowListener(new WindowListenerAdapter() {
+            @Override
+            public void onInput(Window basePane, KeyStroke key, AtomicBoolean deliverEvent) {
+                if (key.getKeyType() == KeyType.Enter) {
+                    apply.run();
+                    deliverEvent.set(false);
+                }
+            }
+
             @Override
             public void onUnhandledInput(Window basePane, KeyStroke key, AtomicBoolean handled) {
                 if (key.getKeyType() == KeyType.Enter) {
