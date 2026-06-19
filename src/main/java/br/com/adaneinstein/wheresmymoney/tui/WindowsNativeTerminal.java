@@ -4,6 +4,9 @@ import com.googlecode.lanterna.TerminalSize;
 import com.googlecode.lanterna.terminal.ansi.CygwinTerminal;
 
 import java.io.IOException;
+import java.io.InputStream;
+import java.io.PipedInputStream;
+import java.io.PipedOutputStream;
 import java.lang.foreign.Arena;
 import java.lang.foreign.FunctionDescriptor;
 import java.lang.foreign.Linker;
@@ -64,7 +67,34 @@ public class WindowsNativeTerminal extends CygwinTerminal {
     private int savedOutputMode;
 
     public WindowsNativeTerminal() throws IOException {
-        super(System.in, System.out, StandardCharsets.UTF_8);
+        super(pumpedStdin(), System.out, StandardCharsets.UTF_8);
+        // O console do Windows tem System.in.available() não confiável (0/atrasado), e o
+        // decoder espera até 250ms checando ready() para montar setas (ESC [ A) caso o ESC
+        // seja lido antes dos bytes seguintes chegarem ao pipe. Custo nulo no caso comum.
+        getInputDecoder().setTimeoutUnits(1);
+    }
+
+    // ponytail: thread daemon faz read bloqueante de System.in (sempre funciona) e empurra
+    // para um pipe cujo available() é confiável — sem isso o poll de 1ms da Lanterna trava
+    // ~2s esperando System.in.available() reportar no console do Windows.
+    private static InputStream pumpedStdin() throws IOException {
+        PipedInputStream in = new PipedInputStream(8192);
+        PipedOutputStream out = new PipedOutputStream(in);
+        Thread pump = new Thread(() -> {
+            byte[] b = new byte[64];
+            try {
+                int n;
+                while ((n = System.in.read(b)) > 0) {
+                    out.write(b, 0, n); // buffer mantém ESC [ A juntos
+                    out.flush();
+                }
+            } catch (IOException ignored) {
+                // EOF/stream fechado no shutdown — encerra a thread
+            }
+        }, "win-stdin-pump");
+        pump.setDaemon(true);
+        pump.start();
+        return in;
     }
 
     // Bloqueia todas as chamadas stty — ponto central de falha no Windows
