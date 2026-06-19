@@ -23,7 +23,6 @@ import com.googlecode.lanterna.input.KeyStroke;
 import com.googlecode.lanterna.input.KeyType;
 import com.googlecode.lanterna.screen.Screen;
 import com.googlecode.lanterna.screen.TerminalScreen;
-import com.googlecode.lanterna.terminal.DefaultTerminalFactory;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
@@ -42,7 +41,7 @@ public class MainScreen {
     private final ReportScreen reportScreen;
 
     public void start() throws Exception {
-        Screen screen = new TerminalScreen(new DefaultTerminalFactory().createTerminal());
+        Screen screen = new TerminalScreen(new TerminalFactory().createTerminal());
         screen.startScreen();
         try {
             WindowBasedTextGUI gui = new MultiWindowTextGUI(screen);
